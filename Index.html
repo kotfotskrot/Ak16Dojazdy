@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+
+<html lang="pl">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fliku Calendar - Rozpis Dojazdów</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        .font-luxury {
+            font-family: 'Cinzel', Georgia, serif;
+        }
+        .gold-text {
+            background: linear-gradient(135deg, #fff3bf 0%, #fcc419 45%, #d97706 85%, #fff3bf 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gold-border {
+            border-color: #d97706;
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+        }
+        .schedule-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 940px;
+            table-layout: fixed;
+        }
+        .schedule-table th, .schedule-table td {
+            border: 1px solid #94a3b8;
+            text-align: center;
+            user-select: none;
+        }
+        .day-header {
+            height: 32px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            background-color: #f8fafc;
+            color: #1e293b;
+            position: relative;
+        }
+        .day-header.wknd {
+            background-color: #2e9f44;
+            color: #ffffff;
+        }
+        .day-header.hol {
+            background-color: #c92a2a;
+            color: #ffffff;
+        }
+        .day-header.past-header {
+            background-color: #cbd5e1 !important;
+            color: #64748b !important;
+            text-decoration: line-through;
+        }
+        .day-header.today-header {
+            background: linear-gradient(135deg, #f59e0b, #b45309) !important;
+            color: #ffffff !important;
+            box-shadow: inset 0 0 0 2px #fef08a;
+        }
+        .shift-cell {
+            height: 64px;
+            vertical-align: top;
+            padding: 3px 2px;
+            cursor: pointer;
+            position: relative;
+            background-color: #ffffff;
+            transition: all 0.15s ease;
+        }
+        .shift-cell:hover {
+            background-color: #e2e8f0;
+            transform: translateY(-1px);
+        }
+        .shift-cell.yel {
+            background-color: #fcc419;
+        }
+        .shift-cell.yel:hover {
+            background-color: #f59f00;
+        }
+        .shift-cell.subbed {
+            background-color: #fff3bf;
+            box-shadow: inset 0 0 0 2px #f59f00;
+        }
+        .shift-cell.past-day {
+            background-color: #e2e8f0 !important;
+            background-image: repeating-linear-gradient(
+                -45deg,
+                rgba(148, 163, 184, 0.16),
+                rgba(148, 163, 184, 0.16) 5px,
+                transparent 5px,
+                transparent 10px
+            ) !important;
+            opacity: 0.52;
+            filter: grayscale(70%);
+        }
+        .shift-cell.past-day:hover {
+            opacity: 0.85;
+            filter: grayscale(20%);
+        }
+        .shift-cell.today-cell {
+            box-shadow: inset 0 0 0 3px #f59e0b !important;
+            background-color: #fffbeb;
+            z-index: 5;
+        }
+        .shift-code {
+            font-weight: 800;
+            font-size: 1rem;
+            line-height: 1.1;
+            color: #0f172a;
+        }
+        .slash-cell {
+            background: linear-gradient(to top left, transparent calc(50% - 1.5px), #1e293b, transparent calc(50% + 1.5px));
+        }
+        .table-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-scroll::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+        .table-scroll::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-3 sm:p-6 max-w-7xl mx-auto">
+<div class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 text-amber-300 border border-amber-500/40 px-4 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2 transition-all" id="toast">
+<span id="toastMsg">Zapisano!</span>
+</div>
+<div class="bg-slate-900 text-slate-200 rounded-2xl px-4 py-2.5 mb-3 flex flex-wrap items-center justify-between gap-3 border border-amber-500/30 shadow-md">
+<div class="flex flex-wrap items-center gap-2.5 text-xs">
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold bg-slate-800 text-slate-300 border border-slate-700" id="roleBadge">
+<span>👁️ Tryb: USER (Tylko odczyt)</span>
+</div>
+<button class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer" id="syncStatusBadge" onclick="handleFirebaseBadgeClick()" title="Status połączenia z bazą danych Google Firebase">
+<span class="w-2 h-2 rounded-full bg-slate-400" id="syncDot"></span>
+<span id="syncText">Lokalnie (Brak chmury)</span>
+</button>
+<div class="hidden md:inline-flex items-center gap-1.5 text-slate-400 pl-2 border-l border-slate-700">
+<span>📅 Dziś:</span>
+<strong class="text-amber-400 font-bold" id="currentDateLabel"></strong>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="admin-only hidden items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer" id="btnFirebaseSetup" onclick="openFirebaseModal()">
+<span>🔥 Konfiguracja Firebase</span>
+</button>
+<button class="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnAdminLogin" onclick="openAdminLoginModal()">
+<span>🔐 Zaloguj jako Admin</span>
+</button>
+<button class="hidden items-center gap-1.5 bg-red-600/90 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnAdminLogout" onclick="logoutAdmin()">
+<span>🔓 Wyloguj Admina</span>
+</button>
+</div>
+</div>
+<header class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl p-4 sm:p-6 shadow-xl border-2 border-amber-500/50 mb-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 relative overflow-hidden">
+<div class="pointer-events-none absolute -top-24 -left-24 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl"></div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-4 z-10">
+<div class="relative group shrink-0 self-start sm:self-center">
+<div class="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl bg-black border-2 border-amber-400 shadow-lg flex flex-col items-center justify-between overflow-hidden relative gold-border">
+<img alt="Fliku Calendar Logo" class="w-full h-full object-cover hidden" id="flikuLogoImg" src=""/>
+<div class="w-full h-full flex flex-col items-center justify-center p-1.5 text-center bg-gradient-to-b from-neutral-950 via-stone-900 to-black" id="flikuDefaultCrest">
+<svg class="w-7 h-4 text-amber-400 mb-0.5" fill="currentColor" viewbox="0 0 64 24">
+<path d="M32 2L38 12L48 6L44 18H20L16 6L26 12L32 2Z"></path>
+</svg>
+<div class="w-11 h-11 rounded-full border-2 border-amber-400 flex items-center justify-center bg-gradient-to-tr from-amber-900/40 to-amber-500/20 shadow-inner">
+<span class="font-luxury font-black text-xl gold-text">F</span>
+</div>
+<span class="font-luxury text-[10px] font-bold tracking-widest text-amber-300 mt-1 leading-none">FLIKU</span>
+<span class="text-[7px] uppercase tracking-widest text-amber-500/80">Calendar</span>
+</div>
+</div>
+<label class="admin-only hidden absolute -bottom-2 -right-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-md cursor-pointer border border-black transition" id="logoUploadLabel" title="Wgraj plik logo">
+                    🖼️ Logo
+                    <input accept="image/*" class="hidden" onchange="handleLogoUpload(event)" type="file"/>
+</label>
+</div>
+<div>
+<div class="flex flex-wrap items-center gap-2.5">
+<h1 class="font-luxury text-2xl sm:text-4xl font-black tracking-wider gold-text">Fliku Calendar</h1>
+<span class="text-[11px] uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-bold">Rozpis Dojazdów</span>
+</div>
+<p class="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-2xl">
+                    Dynamiczny grafik dojazdów do pracy z automatycznym wyszarzaniem minionych dni, synchronizacją <strong class="text-amber-400">Google Firebase</strong> oraz podziałem na tryb <strong class="text-amber-400">Admin</strong> i <strong class="text-slate-200">User</strong>.
+                </p>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-2 z-10">
+<button class="admin-only hidden flex-1 sm:flex-none items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl shadow-sm transition cursor-pointer" onclick="openDriversModal()">
+<span>👥 Kierowcy (3-6+)</span>
+</button>
+<button class="admin-only hidden flex-1 sm:flex-none items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl shadow-sm transition cursor-pointer" onclick="openScheduleGenModal()">
+<span>📅 Harmonogram / Ze zdjęcia</span>
+</button>
+<button class="admin-only hidden flex-1 sm:flex-none items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl shadow-sm transition cursor-pointer" onclick="downloadHtmlFile()" title="Pobierz gotowy plik HTML">
+<span>📥 Pobierz (.html)</span>
+</button>
+<button class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl shadow-sm transition cursor-pointer" onclick="copySummaryToClipboard()">
+<span>📋 Kopiuj bilans</span>
+</button>
+<button class="admin-only hidden items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs sm:text-sm px-3 py-2.5 rounded-xl transition cursor-pointer" onclick="openResetConfirmModal()">
+<span>🔄 Reset</span>
+</button>
+</div>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+<div class="lg:col-span-2 bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+<h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+<span>⚖️ Kto komu musi odjechać (Bilans netto)</span>
+</h2>
+<span class="text-xs font-medium bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Automatyczne rozliczanie</span>
+</div>
+<div class="space-y-2.5 my-2" id="debtsContainer"></div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between flex-wrap gap-2">
+<span>💡 Długi kompensują się automatycznie. Dni na żółto (urlop) są pomijane w rozpisie.</span>
+</div>
+</div>
+<div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+<h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+<span>📊 Liczba kursów</span>
+</h2>
+<button class="admin-only hidden text-xs font-bold text-indigo-600 hover:underline cursor-pointer" onclick="openDriversModal()">Edytuj skład</button>
+</div>
+<div class="grid grid-cols-2 gap-2.5" id="statsGrid"></div>
+</div>
+</div>
+<section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 mb-5">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
+<div>
+<div class="flex items-center gap-2 flex-wrap">
+<h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+<span>📅 Interaktywna Tabela Dojazdów</span>
+</h2>
+<button class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition cursor-pointer" id="btnTogglePast" onclick="toggleGrayOutPastDays()">
+                        ⏳ Wyszarzanie minionych dni: WŁ.
+                    </button>
+</div>
+<p class="text-xs text-slate-500 mt-1" id="calendarHintText">
+                    👁️ Jesteś w trybie <strong>USER (Tylko odczyt)</strong>. Kliknij dowolny dzień, aby zobaczyć szczegóły.
+                </p>
+</div>
+<div class="flex flex-wrap items-center gap-2">
+<div class="flex flex-wrap items-center gap-2 text-xs font-semibold" id="legendContainer"></div>
+<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-[#fcc419] text-slate-900 shadow-2xs">🏖️ Żółte = Urlop</span>
+<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-300 text-slate-600 line-through">Miniony dzień</span>
+</div>
+</div>
+<div class="space-y-5" id="calendarContainer"></div>
+</section>
+<section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 mb-8">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+<h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+<span>📝 Historia wpisanych zastępstw (Nieplanowe jazdy)</span>
+</h2>
+<span class="text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full" id="subCountBadge">0 wpisów</span>
+</div>
+<div class="divide-y divide-slate-100" id="historyContainer"></div>
+</section>
+<div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 hidden items-center justify-center p-4" id="adminLoginModal">
+<div class="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div>
+<span class="text-xs font-bold uppercase tracking-wider text-amber-600">Autoryzacja Fliku Calendar</span>
+<h3 class="text-lg font-extrabold text-slate-900">🔐 Logowanie Administratora</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeAdminLoginModal()">×</button>
+</div>
+<form class="space-y-4" onsubmit="submitAdminPin(event)">
+<div>
+<label class="block text-xs font-bold text-slate-600 mb-1.5">Podaj kod PIN lub hasło Admina:</label>
+<input autofocus="" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-center text-lg font-extrabold tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-500" id="adminPinInput" placeholder="••••" type="password"/>
+<p class="text-[11px] text-slate-400 mt-1.5 text-center" id="adminDefaultPinHint">
+                        Domyślny kod PIN to: <strong class="text-slate-600">1234</strong>
+</p>
+</div>
+<div class="flex justify-end gap-2 pt-2">
+<button class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm cursor-pointer" onclick="closeAdminLoginModal()" type="button">Anuluj</button>
+<button class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-sm shadow-sm cursor-pointer" type="submit">Odblokuj tryb Admina</button>
+</div>
+</form>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 hidden items-center justify-center p-4 overflow-y-auto" id="firebaseModal">
+<div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div>
+<span class="text-xs font-bold uppercase tracking-wider text-amber-600">Synchronizacja w chmurze</span>
+<h3 class="text-lg font-extrabold text-slate-900">🔥 Połączenie z Google Firebase &amp; Ustawienia Admina</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeFirebaseModal()">×</button>
+</div>
+<div class="space-y-4 text-xs text-slate-600">
+<div class="bg-slate-100 border border-slate-300 rounded-xl p-3 text-xs text-slate-800" id="firebaseDiagBox">
+<strong>📡 Status diagnostyczny:</strong> <span id="firebaseDiagText">Sprawdzanie połączenia z projektem <b>fliku-calendar</b>...</span>
+</div>
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-amber-950 space-y-2">
+<div class="font-bold text-sm">✅ Projekt <code class="bg-white px-1.5 py-0.5 rounded border border-amber-300">fliku-calendar</code> jest przypisany na stałe!</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-700 mb-1">Wklej obiekt <code class="text-amber-700">firebaseConfig</code> (opcjonalnie):</label>
+<textarea class="w-full font-mono text-xs rounded-xl border border-slate-300 p-3 bg-slate-50" id="firebaseConfigInput" rows="5"></textarea>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+<div>
+<label class="block text-xs font-bold text-slate-700 mb-1">🔑 Zmień kod PIN Admina:</label>
+<input class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold" id="newAdminPinInput" placeholder="Nowy PIN" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-700 mb-1">🖼️ Wgraj logo:</label>
+<input accept="image/*" class="text-xs text-slate-600 cursor-pointer" onchange="handleLogoUpload(event)" type="file"/>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-6 pt-3 border-t border-slate-100">
+<button class="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs cursor-pointer" onclick="pushLocalStateToFirebase()" type="button">☁️ Wyślij do chmury</button>
+<div class="flex items-center gap-2">
+<button class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs cursor-pointer" onclick="closeFirebaseModal()" type="button">Zamknij</button>
+<button class="px-5 py-2 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs cursor-pointer" onclick="saveFirebaseAndAdminConfig()" type="button">💾 Zapisz</button>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-4" id="userViewModal">
+<div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+<div>
+<span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Szczegóły dnia</span>
+<h3 class="text-lg font-extrabold text-slate-900" id="userModalTitle">1 ZÁŘÍ</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeUserViewModal()">×</button>
+</div>
+<div class="space-y-2.5 text-sm text-slate-700" id="userModalBody"></div>
+<div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+<button class="text-xs font-bold text-amber-600 hover:underline cursor-pointer" onclick="closeUserViewModal(); openAdminLoginModal();">🔐 Zaloguj jako Admin</button>
+<button class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer" onclick="closeUserViewModal()">Zamknij</button>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-4" id="editModal">
+<div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div>
+<span class="text-xs font-bold uppercase tracking-wider text-blue-600">Edycja dnia (Admin)</span>
+<h3 class="text-lg font-extrabold text-slate-900" id="modalTitle">1 ZÁŘÍ</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeEditModal()">×</button>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold uppercase text-slate-600 mb-2">🚗 Kto faktycznie jechał (Zastępstwo):</label>
+<div class="grid grid-cols-2 gap-2" id="quickActualBtns"></div>
+</div>
+<div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Planowany:</label>
+<select class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold" id="editPlan"></select>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Zmiana:</label>
+<select class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold" id="editShift">
+<option value="">(Wolne)</option>
+<option value="R">R - Rano</option>
+<option value="O">O - Popołudnie</option>
+<option value="N">N - Noc</option>
+<option value="Ø">Ø - Święto</option>
+</select>
+</div>
+</div>
+<div class="flex flex-col gap-2 pt-1 text-xs font-medium text-slate-700 bg-slate-50 p-2.5 rounded-xl border">
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded text-amber-500 w-4 h-4" id="editYel" onchange="onToggleYellowVacation(this.checked)" type="checkbox"/>
+<span class="font-bold text-amber-900">🏖️ Planowany urlop (Żółte tło)</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded text-red-600 w-4 h-4" id="editHol" type="checkbox"/>
+<span>🔴 Święto</span>
+</label>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1">Notatka:</label>
+<input class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" id="editNote" placeholder="np. urlop, warsztat..." type="text"/>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2.5 mt-6 pt-3 border-t border-slate-100">
+<button class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm cursor-pointer" onclick="closeEditModal()" type="button">Anuluj</button>
+<button class="px-5 py-2 rounded-xl bg-blue-600 text-white font-bold text-sm cursor-pointer" onclick="saveDayChanges()" type="button">Zapisz</button>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-4 overflow-y-auto" id="driversModal">
+<div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div>
+<span class="text-xs font-bold uppercase tracking-wider text-indigo-600">Ekipa</span>
+<h3 class="text-lg font-extrabold text-slate-900">👥 Zarządzanie Kierowcami</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeDriversModal()">×</button>
+</div>
+<div class="space-y-2 max-h-64 overflow-y-auto pr-1 mb-4" id="driversListEditor"></div>
+<div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 mb-4">
+<div class="text-xs font-bold text-slate-700 mb-2">➕ Dodaj kierowcę:</div>
+<div class="grid grid-cols-12 gap-2 items-center">
+<div class="col-span-3"><input class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold uppercase" id="newDrvCode" maxlength="3" placeholder="Kod" type="text"/></div>
+<div class="col-span-5"><input class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-semibold" id="newDrvName" placeholder="Imię" type="text"/></div>
+<div class="col-span-2 flex justify-center"><input class="w-8 h-8 rounded cursor-pointer border-0" id="newDrvColor" type="color" value="#8b5cf6"/></div>
+<div class="col-span-2"><button class="w-full bg-indigo-600 text-white font-bold text-xs py-2 rounded-lg cursor-pointer" onclick="addNewDriver()">Dodaj</button></div>
+</div>
+</div>
+<div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 mb-4">
+<div class="text-xs font-bold text-indigo-950 mb-1">🔄 Automatycznie rozpisz grafik:</div>
+<div class="grid grid-cols-2 gap-2.5 mb-2.5">
+<div>
+<label class="block text-[11px] font-semibold text-indigo-900 mb-1">Dni z rzędu:</label>
+<input class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="rotDaysPerDriver" max="14" min="1" type="number" value="2"/>
+</div>
+<div>
+<label class="block text-[11px] font-semibold text-indigo-900 mb-1">Zacznij od:</label>
+<select class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="rotStartDriver"></select>
+</div>
+</div>
+<button class="w-full bg-indigo-600 text-white font-bold text-xs py-2 px-3 rounded-lg cursor-pointer" onclick="autoAssignAllSchedule()">⚡ Rozpisz automatycznie</button>
+</div>
+<div class="flex justify-end"><button class="px-5 py-2 rounded-xl bg-slate-800 text-white font-bold text-sm cursor-pointer" onclick="closeDriversModal()">Gotowe</button></div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-3 sm:p-4 overflow-y-auto" id="scheduleGenModal">
+<div class="bg-white rounded-2xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 my-8 max-h-[92vh] overflow-y-auto">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div>
+<span class="text-xs font-bold uppercase tracking-wider text-amber-600">Harmonogram</span>
+<h3 class="text-lg font-extrabold text-slate-900">📅 Edycja Harmonogramu</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeScheduleGenModal()">×</button>
+</div>
+<div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-4">
+<button class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 text-white cursor-pointer" id="tabBtn_photo" onclick="switchSchedTab('photo')">📷 1. Miesiąc ze zdjęcia</button>
+<button class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 cursor-pointer" id="tabBtn_year" onclick="switchSchedTab('year')">🚀 2. Nowy rok</button>
+<button class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 cursor-pointer" id="tabBtn_file" onclick="switchSchedTab('file')">📂 3. Plik JSON</button>
+</div>
+<div class="space-y-4" id="schedTab_photo">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+<label class="cursor-pointer w-full">
+<span class="text-2xl block mb-1">🖼️</span>
+<span class="text-xs font-bold text-blue-600 hover:underline block">Wybierz zdjęcie grafiku</span>
+<input accept="image/*" class="hidden" onchange="previewSchedulePhoto(event)" type="file"/>
+</label>
+<div class="hidden mt-3 w-full" id="photoPreviewWrap">
+<img alt="Podgląd" class="max-h-56 mx-auto rounded-lg border shadow-xs object-contain" id="photoPreviewImg"/>
+</div>
+</div>
+<div class="space-y-3 bg-slate-50 p-4 rounded-xl border">
+<div class="grid grid-cols-2 gap-2.5">
+<div>
+<label class="block text-[11px] font-semibold mb-1">Miesiąc:</label>
+<select class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="genMonthNum" onchange="updateMonthPreviewGrid()">
+<option value="0">Styczeń</option><option value="1">Luty</option><option value="2">Marzec</option><option value="3">Kwiecień</option><option value="4">Maj</option><option value="5">Czerwiec</option><option value="6">Lipiec</option><option value="7">Sierpień</option><option value="8">Wrzesień</option><option value="9">Październik</option><option value="10">Listopad</option><option value="11">Grudzień</option>
+</select>
+</div>
+<div>
+<label class="block text-[11px] font-semibold mb-1">Rok:</label>
+<input class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="genYearNum" onchange="updateMonthPreviewGrid()" type="number" value="2027"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2.5">
+<div>
+<label class="block text-[11px] font-semibold mb-1">Zaczyna:</label>
+<select class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="genMonthStartDrv"></select>
+</div>
+<div>
+<label class="block text-[11px] font-semibold mb-1">Dni z rzędu:</label>
+<input class="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold bg-white" id="genMonthRotDays" max="10" min="1" type="number" value="2"/>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-amber-50 border rounded-xl p-3">
+<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+<span class="text-xs font-bold">Wybierz pędzel i klikaj dni:</span>
+<div class="flex flex-wrap gap-1.5">
+<button class="brush-btn px-3 py-1 rounded-lg text-xs font-extrabold bg-amber-600 text-white cursor-pointer" data-brush="R" onclick="setCreatorBrush('R')" type="button">R</button>
+<button class="brush-btn px-3 py-1 rounded-lg text-xs font-extrabold bg-white border cursor-pointer" data-brush="O" onclick="setCreatorBrush('O')" type="button">O</button>
+<button class="brush-btn px-3 py-1 rounded-lg text-xs font-extrabold bg-white border cursor-pointer" data-brush="N" onclick="setCreatorBrush('N')" type="button">N</button>
+<button class="brush-btn px-3 py-1 rounded-lg text-xs font-extrabold bg-[#fcc419] border cursor-pointer" data-brush="YEL" onclick="setCreatorBrush('YEL')" type="button">🏖️ Urlop</button>
+<button class="brush-btn px-3 py-1 rounded-lg text-xs font-extrabold bg-white border text-red-700 cursor-pointer" data-brush="Ø" onclick="setCreatorBrush('Ø')" type="button">Ø</button>
+</div>
+</div>
+<div class="grid grid-cols-7 sm:grid-cols-11 gap-1.5 pt-2" id="creatorDaysGrid"></div>
+</div>
+<div class="flex justify-end pt-2 border-t">
+<button class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs cursor-pointer" onclick="saveCreatedMonthToSchedule()">✅ Zapisz miesiąc</button>
+</div>
+</div>
+<div class="hidden space-y-4" id="schedTab_year">
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+<h4 class="font-bold text-sm text-blue-950">Generowanie całego roku</h4>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+<div><label class="block text-xs font-semibold mb-1">Rok:</label><input class="w-full rounded-lg border px-3 py-2 text-sm font-bold bg-white" id="fullYearTarget" type="number" value="2027"/></div>
+<div><label class="block text-xs font-semibold mb-1">Pierwszy kierowca:</label><select class="w-full rounded-lg border px-3 py-2 text-sm font-bold bg-white" id="fullYearStartDrv"></select></div>
+<div><label class="block text-xs font-semibold mb-1">Tryb:</label><select class="w-full rounded-lg border px-3 py-2 text-sm font-bold bg-white" id="fullYearMode"><option value="append">Dołącz</option><option value="replace">Zastąp</option></select></div>
+</div>
+<button class="bg-blue-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer" onclick="generateFullYearSchedule()">⚡ Wygeneruj cały rok</button>
+</div>
+<div class="bg-slate-50 border rounded-xl p-4">
+<div class="text-xs font-bold mb-2">Istniejące miesiące:</div>
+<div class="flex flex-wrap gap-2" id="existingMonthsList"></div>
+</div>
+</div>
+<div class="hidden space-y-4" id="schedTab_file">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="bg-slate-50 border rounded-xl p-4"><button class="bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer" onclick="exportJsonFile()">Pobierz kopię (.json)</button></div>
+<div class="bg-slate-50 border rounded-xl p-4"><input accept=".json" class="text-xs" onchange="importJsonFile(event)" type="file"/></div>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-4" id="resetModal">
+<div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border">
+<h3 class="text-lg font-extrabold mb-2">Resetować grafik?</h3>
+<div class="flex justify-end gap-2.5">
+<button class="px-4 py-2 rounded-xl bg-slate-100 text-sm cursor-pointer" onclick="closeResetConfirmModal()">Anuluj</button>
+<button class="px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-sm cursor-pointer" onclick="confirmResetAll()">Tak</button>
+</div>
+</div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script><script>
+// Firebase compat adapter: keeps the original app logic while supporting a
+// regular HTML file opened in a browser.
+const initializeApp = (config) => firebase.initializeApp(config);
+const getApps = () => firebase.apps;
+const deleteApp = (app) => app.delete();
+const getAuth = (app) => app.auth();
+const signInAnonymously = (authInstance) => authInstance.signInAnonymously();
+const signInWithCustomToken = (authInstance, token) => authInstance.signInWithCustomToken(token);
+const getFirestore = (app) => app.firestore();
+const doc = (dbInstance, path) => dbInstance.doc(path);
+const setDoc = (docRef, data) => docRef.set(data);
+const onSnapshot = (docRef, callback, errorCallback) => docRef.onSnapshot(callback, errorCallback);
+const getDatabase = (app, url) => app.database(url);
+const ref = (dbInstance, path) => dbInstance.ref(path);
+const set = (refInstance, data) => refInstance.set(data);
+const onValue = (refInstance, callback, errorCallback) => {
+    refInstance.on('value', callback, errorCallback);
+    return () => refInstance.off('value', callback);
+};
+
+
+const MONTH_META = [
+    { cz: 'LEDEN', pl: 'Styczeń' }, { cz: 'ÚNOR', pl: 'Luty' }, { cz: 'BŘEZEN', pl: 'Marzec' },
+    { cz: 'DUBEN', pl: 'Kwiecień' }, { cz: 'KVĚTEN', pl: 'Maj' }, { cz: 'ČERVEN', pl: 'Czerwiec' },
+    { cz: 'ČERVENEC', pl: 'Lipiec' }, { cz: 'SRPEN', pl: 'Sierpień' }, { cz: 'ZÁŘÍ', pl: 'Wrzesień' },
+    { cz: 'ŘÍJEN', pl: 'Październik' }, { cz: 'LISTOPAD', pl: 'Listopad' }, { cz: 'PROSINEC', pl: 'Grudzień' }
+];
+
+const DEFAULT_DRIVERS = [{"code":"K","name":"Karol","color":"#dc3545"},{"code":"D","name":"Daniel","color":"#0d6efd"},{"code":"P","name":"Paweł","color":"#198754"},{"code":"J","name":"Janusz","color":"#212529"}];
+const INITIAL_SCHEDULE = [{"id":"zari_2026","name":"ZÁŘÍ","plName":"Wrzesień 2026","days":30,"wknd":[5,6,12,13,19,20,26,27],"hol":[28],"yel":[],"shifts":{"1":"N","2":"N","7":"O","8":"O","9":"O","10":"O","11":"O","12":"O","14":"R","15":"R","16":"R","17":"R","20":"N","21":"N","22":"N","23":"N","24":"N","25":"N","28":"Ø","29":"O","30":"O"},"planned":{"8":"K","9":"K","10":"D","11":"D","12":"P","14":"P","15":"J","16":"J","17":"K","20":"K","21":"D","22":"D","23":"P","24":"P","25":"J","29":"J","30":"K"},"actual":{},"notes":{}},{"id":"rijen_2026","name":"ŘÍJEN","plName":"Październik 2026","days":31,"wknd":[3,4,10,11,17,18,24,25,31],"hol":[28],"yel":[],"shifts":{"1":"O","5":"R","6":"R","7":"R","8":"R","9":"R","10":"R","11":"N","12":"N","15":"N","16":"N","19":"O","20":"O","21":"O","22":"O","23":"O","24":"O","26":"R","27":"R","30":"R","31":"R"},"planned":{"1":"K","5":"D","6":"D","7":"P","8":"P","9":"J","10":"J","11":"K","12":"K","15":"D","16":"D","19":"P","20":"P","21":"J","22":"J","23":"K","24":"K","26":"D","27":"D","30":"P","31":"P"},"actual":{},"notes":{}},{"id":"listopad_2026","name":"LISTOPAD","plName":"Listopad 2026","days":30,"wknd":[1,7,8,14,15,21,22,28,29],"hol":[17],"yel":[16],"shifts":{"1":"N","2":"N","3":"N","4":"N","5":"N","6":"N","9":"O","10":"O","13":"O","14":"O","16":"R","17":"Ø","18":"R","19":"R","20":"R","21":"R","24":"N","25":"N","26":"N","27":"N","30":"O"},"planned":{"1":"J","2":"J","3":"K","4":"K","5":"D","6":"D","9":"P","10":"P","13":"J","14":"J","18":"K","19":"K","20":"D","21":"D","24":"P","25":"P","26":"J","27":"J","30":"K"},"actual":{},"notes":{}},{"id":"prosinec_2026","name":"PROSINEC","plName":"Grudzień 2026","days":31,"wknd":[5,6,12,13,19,20,26,27],"hol":[24,25,26],"yel":[23,28,29,30,31],"shifts":{"1":"O","2":"O","3":"O","4":"O","5":"O","9":"R","10":"R","11":"R","12":"R","13":"N","14":"N","15":"N","16":"N","17":"N","18":"N","23":"O","24":"Ø","25":"Ø","26":"Ø","28":"R","29":"R","30":"R","31":"R"},"planned":{"1":"K","2":"D","3":"D","4":"P","5":"P","9":"J","10":"J","11":"K","12":"K","13":"D","14":"D","15":"P","16":"P","17":"J","18":"J"},"actual":{},"notes":{}}];
+
+let EMBEDDED_CUSTOM_FIREBASE_CONFIG = {
+  "apiKey": "AIzaSyCYDoV3B_oXTxKB7i_nHcZFyA7voTFrfZo",
+  "authDomain": "fliku-calendar.firebaseapp.com",
+  "databaseURL": "https://fliku-calendar-default-rtdb.europe-west1.firebasedatabase.app",
+  "projectId": "fliku-calendar",
+  "storageBucket": "fliku-calendar.firebasestorage.app",
+  "messagingSenderId": "215820164065",
+  "appId": "1:215820164065:web:eaf75a8d031da3bcced0a0"
+};
+let EMBEDDED_ADMIN_PIN = "1234";
+let EMBEDDED_LOGO_DATA = "";
+
+let driversList = JSON.parse(JSON.stringify(DEFAULT_DRIVERS));
+let scheduleData = JSON.parse(JSON.stringify(INITIAL_SCHEDULE));
+let adminPin = EMBEDDED_ADMIN_PIN || "1234";
+let customLogoData = EMBEDDED_LOGO_DATA || "";
+let isAdmin = false;
+let grayOutPastDays = true;
+
+let activeModalCell = { mIndex: null, day: null, selectedActual: '' };
+let creatorBrush = 'R';
+let creatorTempShifts = {};
+let creatorTempYel = [];
+
+let rtdb = null;
+let db = null;
+let auth = null;
+let currentUser = null;
+let unsubscribeSnapshot = null;
+let activeDbMode = 'none';
+let restPollTimer = null;
+let isApplyingRemoteUpdate = false;
+let isUsingCustomFirebase = true;
+let activeFirebaseConfig = EMBEDDED_CUSTOM_FIREBASE_CONFIG;
+
+function setDiagMessage(msg, isError = false) {
+    const el = document.getElementById('firebaseDiagText');
+    const box = document.getElementById('firebaseDiagBox');
+    if (el) el.innerHTML = msg;
+    if (box) {
+        box.className = isError
+            ? 'bg-red-50 border border-red-300 rounded-xl p-3 text-xs text-red-900'
+            : 'bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-900';
+    }
+}
+
+function updateSyncBadge(status, text) {
+    const dot = document.getElementById('syncDot');
+    const label = document.getElementById('syncText');
+    if (!dot || !label) return;
+
+    if (status === 'connected') {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+        label.textContent = text || 'Firebase: Połączono (Live)';
+    } else if (status === 'connecting') {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+        label.textContent = text || 'Łączenie z Firebase...';
+    } else if (status === 'error') {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+        label.textContent = text || 'Błąd Firebase';
+    } else {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+        label.textContent = text || 'Tryb lokalny';
+    }
+}
+
+function handleFirebaseBadgeClick() {
+    if (isAdmin) {
+        openFirebaseModal();
+    } else {
+        openAdminLoginModal();
+        showToast('🔐 Zaloguj się jako Admin (PIN: 1234), aby otworzyć ustawienia Firebase.');
+    }
+}
+
+function applyIncomingCloudData(data) {
+    if (!data) return false;
+    isApplyingRemoteUpdate = true;
+    try {
+        if (data.driversJson) { try { driversList = JSON.parse(data.driversJson); } catch (e) {} }
+        if (data.scheduleJson) { try { scheduleData = JSON.parse(data.scheduleJson); } catch (e) {} }
+        if (data.adminPin) { adminPin = data.adminPin; }
+        if (typeof data.logoData === 'string' && data.logoData.length > 0) { customLogoData = data.logoData; }
+        saveLocalBackup();
+        renderLogo();
+        renderAll();
+    } finally {
+        isApplyingRemoteUpdate = false;
+    }
+    return true;
+}
+
+function saveLocalBackup() {
+    try {
+        localStorage.setItem('fliku_backup_state_v2', JSON.stringify({
+            driversJson: JSON.stringify(driversList),
+            scheduleJson: JSON.stringify(scheduleData),
+            adminPin: adminPin,
+            logoData: customLogoData || ''
+        }));
+    } catch (e) {}
+}
+
+function loadLocalBackup() {
+    try {
+        const raw = localStorage.getItem('fliku_backup_state_v2');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.driversJson) driversList = JSON.parse(data.driversJson);
+        if (data.scheduleJson) scheduleData = JSON.parse(data.scheduleJson);
+        if (data.adminPin) adminPin = data.adminPin;
+        if (data.logoData) customLogoData = data.logoData;
+    } catch (e) {}
+}
+
+async function tryRestFallback(configToUse) {
+    if (!configToUse.databaseURL) {
+        updateSyncBadge('error', 'Brak adresu Firebase');
+        setDiagMessage('W konfiguracji nie ma pola databaseURL.', true);
+        return false;
+    }
+    const cleanUrl = configToUse.databaseURL.replace(/\/+$/, '');
+    const endpoint = `${cleanUrl}/fliku_calendar/main_state.json`;
+    const timedFetch = async (url, options = {}) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        try { return await fetch(url, { ...options, signal: controller.signal, cache: 'no-store' }); }
+        finally { clearTimeout(timer); }
+    };
+    try {
+        const resp = await timedFetch(endpoint, { method: 'GET' });
+        if (resp.status === 401 || resp.status === 403) {
+            updateSyncBadge('error', 'Firebase: Brak dostępu');
+            setDiagMessage(`Firebase odrzucił odczyt (HTTP ${resp.status}). Sprawdź reguły Realtime Database (Rules) oraz logowanie anonimowe.`, true);
+            return false;
+        }
+        if (!resp.ok) {
+            updateSyncBadge('error', `Firebase: HTTP ${resp.status}`);
+            setDiagMessage(`Serwer Firebase odpowiedział kodem HTTP ${resp.status}.`, true);
+            return false;
+        }
+        const data = await resp.json();
+        activeDbMode = 'rest';
+        updateSyncBadge('connected', `Firebase (${configToUse.projectId}): Połączono`);
+        setDiagMessage('Połączono z Realtime Database przez REST. Synchronizacja kontrolna co 8 sekund.');
+        if (data && (data.scheduleJson || data.driversJson)) applyIncomingCloudData(data);
+        else await pushLocalStateToFirebase(true);
+        if (restPollTimer) clearInterval(restPollTimer);
+        restPollTimer = setInterval(async () => {
+            try {
+                const r = await timedFetch(endpoint, { method: 'GET' });
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d && (d.scheduleJson || d.driversJson)) applyIncomingCloudData(d);
+                }
+            } catch (e) { /* chwilowa przerwa; następny odczyt ponowi próbę */ }
+        }, 8000);
+        return true;
+    } catch (err) {
+        const reason = err && err.name === 'AbortError' ? 'Przekroczono limit czasu (6 s).' : (err && err.message ? err.message : String(err));
+        updateSyncBadge('error', 'Firebase: Brak połączenia');
+        setDiagMessage(`Nie udało się połączyć z bazą Firebase. ${reason} Sprawdź internet, adres databaseURL i reguły bazy.`, true);
+        return false;
+    }
+}
+
+async function initFirebaseConnection(customConfigObj = null) {
+    let connectionWatchdog = null;
+    try {
+        const configToUse = customConfigObj || EMBEDDED_CUSTOM_FIREBASE_CONFIG;
+        activeFirebaseConfig = configToUse;
+        activeDbMode = 'none';
+        updateSyncBadge('connecting', `Łączenie z ${configToUse.projectId || 'Firebase'}...`);
+        setDiagMessage('Uruchamianie Firebase i sprawdzanie połączenia…');
+
+        if (!window.firebase || !firebase.initializeApp || !firebase.database) {
+            updateSyncBadge('error', 'Nie załadowano Firebase SDK');
+            setDiagMessage('Nie załadowały się biblioteki Firebase z Google. Sprawdź internet lub blokadę skryptów/CDN.', true);
+            return;
+        }
+        if (!configToUse.apiKey || !configToUse.projectId || !configToUse.databaseURL) {
+            updateSyncBadge('error', 'Niepełna konfiguracja Firebase');
+            setDiagMessage('Konfiguracja musi zawierać apiKey, projectId i databaseURL.', true);
+            return;
+        }
+
+        if (unsubscribeSnapshot) { try { unsubscribeSnapshot(); } catch (e) {} unsubscribeSnapshot = null; }
+        if (restPollTimer) { clearInterval(restPollTimer); restPollTimer = null; }
+        const existingApps = getApps();
+        for (const a of existingApps) { try { await deleteApp(a); } catch (e) {} }
+
+        const app = initializeApp(configToUse);
+        auth = getAuth(app);
+        let authWarning = '';
+
+        // Nie pozwól, aby zawieszone logowanie anonimowe blokowało uruchomienie RTDB.
+        try {
+            await Promise.race([
+                signInAnonymously(auth),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Przekroczono 7 s oczekiwania na logowanie anonimowe')), 7000))
+            ]);
+        } catch (authErr) {
+            authWarning = ` Uwaga: logowanie anonimowe: ${authErr.code || authErr.message || authErr}.`;
+        }
+
+        rtdb = getDatabase(app, configToUse.databaseURL);
+        const stateRef = ref(rtdb, 'fliku_calendar/main_state');
+        let settled = false;
+
+        connectionWatchdog = setTimeout(async () => {
+            if (settled || activeDbMode === 'rtdb' || activeDbMode === 'rest') return;
+            setDiagMessage('Połączenie na żywo nie odpowiedziało. Sprawdzam dostęp przez REST…' + authWarning);
+            const restOk = await tryRestFallback(configToUse);
+            if (!restOk && activeDbMode !== 'rtdb') {
+                updateSyncBadge('error', 'Firebase: Brak odpowiedzi');
+                setDiagMessage(`Firebase nie odpowiedział w ciągu 15 sekund.${authWarning} Sprawdź reguły Realtime Database oraz adres databaseURL.`, true);
+            }
+        }, 15000);
+
+        unsubscribeSnapshot = onValue(stateRef, (snapshot) => {
+            settled = true;
+            if (connectionWatchdog) clearTimeout(connectionWatchdog);
+            activeDbMode = 'rtdb';
+            updateSyncBadge('connected', `Firebase (${configToUse.projectId}): Live`);
+            setDiagMessage(`Połączono na żywo z Realtime Database.${authWarning}`);
+            if (snapshot.exists()) applyIncomingCloudData(snapshot.val());
+            else pushLocalStateToFirebase(true);
+        }, async (err) => {
+            settled = true;
+            if (connectionWatchdog) clearTimeout(connectionWatchdog);
+            const code = err && (err.code || err.message) ? (err.code || err.message) : 'nieznany błąd';
+            setDiagMessage(`Realtime Database zgłosiła: ${code}. Sprawdzam dostęp przez REST…${authWarning}`, true);
+            const restOk = await tryRestFallback(configToUse);
+            if (!restOk) {
+                updateSyncBadge('error', 'Firebase: Błąd dostępu');
+                setDiagMessage(`Błąd Realtime Database: ${code}.${authWarning} Sprawdź reguły bazy i logowanie anonimowe.`, true);
+            }
+        });
+    } catch (err) {
+        if (connectionWatchdog) clearTimeout(connectionWatchdog);
+        updateSyncBadge('error', 'Błąd konfiguracji Firebase');
+        setDiagMessage(`Nie udało się uruchomić Firebase: ${err && err.message ? err.message : String(err)}`, true);
+    }
+}
+
+async function pushLocalStateToFirebase(silent = false) {
+    if (isApplyingRemoteUpdate) return;
+    saveLocalBackup();
+    const payload = {
+        driversJson: JSON.stringify(driversList),
+        scheduleJson: JSON.stringify(scheduleData),
+        adminPin: adminPin,
+        logoData: customLogoData || '',
+        updatedAt: new Date().toISOString()
+    };
+    try {
+        if (activeDbMode === 'rtdb' && rtdb) {
+            const stateRef = ref(rtdb, 'fliku_calendar/main_state');
+            await set(stateRef, payload);
+            if (!silent) showToast('☁️ Zapisano w Firebase!');
+            return;
+        }
+        if (activeFirebaseConfig && activeFirebaseConfig.databaseURL) {
+            const cleanUrl = activeFirebaseConfig.databaseURL.replace(/\/+$/, '');
+            const resp = await fetch(`${cleanUrl}/fliku_calendar/main_state.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                if (!silent) showToast('☁️ Zapisano w Firebase!');
+                return;
+            }
+        }
+    } catch (err) {
+        if (!silent) showToast('❌ Błąd zapisu do Firebase');
+    }
+}
+
+function parseFirebaseConfigInput(rawText) {
+    if (!rawText || !rawText.trim()) return null;
+    const regex = /["']?([a-zA-Z0-9_]+)["']?\s*:\s*["']([^"']+)["']/g;
+    const allowedKeys = new Set(['apiKey', 'authDomain', 'databaseURL', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId']);
+    const result = {};
+    let match;
+    while ((match = regex.exec(rawText)) !== null) {
+        const key = match[1].trim();
+        const val = match[2].trim();
+        if (allowedKeys.has(key)) { result[key] = val; }
+    }
+    if (Object.keys(result).length > 0) return result;
+    return JSON.parse(rawText);
+}
+
+function openFirebaseModal() {
+    if (!isAdmin) return;
+    const modal = document.getElementById('firebaseModal');
+    document.getElementById('firebaseConfigInput').value = JSON.stringify(activeFirebaseConfig, null, 2);
+    document.getElementById('newAdminPinInput').value = adminPin;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+function closeFirebaseModal() {
+    document.getElementById('firebaseModal').classList.add('hidden');
+    document.getElementById('firebaseModal').classList.remove('flex');
+}
+
+async function saveFirebaseAndAdminConfig() {
+    if (!isAdmin) return;
+    const rawCfg = document.getElementById('firebaseConfigInput').value.trim();
+    const newPin = document.getElementById('newAdminPinInput').value.trim();
+    if (newPin) { adminPin = newPin; EMBEDDED_ADMIN_PIN = newPin; }
+    if (rawCfg) {
+        try {
+            const parsed = parseFirebaseConfigInput(rawCfg);
+            if (parsed && parsed.apiKey && parsed.projectId) {
+                EMBEDDED_CUSTOM_FIREBASE_CONFIG = parsed;
+                activeFirebaseConfig = parsed;
+                await initFirebaseConnection(parsed);
+                await pushLocalStateToFirebase(true);
+                closeFirebaseModal();
+                showToast('🔥 Zapisano konfigurację!');
+                return;
+            }
+        } catch (e) {}
+    }
+    await pushLocalStateToFirebase(true);
+    closeFirebaseModal();
+    showToast('✅ Zapisano!');
+}
+
+function getTodayMidnight() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+function resolveMonthAndYear(m) {
+    let year = 2026;
+    const ym = (m.plName || m.id || '').match(/\b(20\d{2})\b/);
+    if (ym) year = parseInt(ym[1], 10);
+    const upper = (m.name || '').toUpperCase().trim();
+    let monthIdx = MONTH_META.findIndex(meta => meta.cz === upper);
+    if (monthIdx === -1 && m.plName) {
+        monthIdx = MONTH_META.findIndex(meta => m.plName.toLowerCase().includes(meta.pl.toLowerCase()));
+    }
+    if (monthIdx === -1) monthIdx = 8;
+    return { year, monthIdx };
+}
+function getDayStatus(m, day) {
+    const { year, monthIdx } = resolveMonthAndYear(m);
+    const cellDate = new Date(year, monthIdx, day);
+    const today = getTodayMidnight();
+    if (cellDate.getTime() < today.getTime()) return 'past';
+    if (cellDate.getTime() === today.getTime()) return 'today';
+    return 'future';
+}
+function formatCurrentDateLabel() {
+    const today = new Date();
+    const d = today.getDate();
+    const mName = MONTH_META[today.getMonth()] ? MONTH_META[today.getMonth()].pl : '';
+    const y = today.getFullYear();
+    const el = document.getElementById('currentDateLabel');
+    if (el) el.textContent = `${d} ${mName} ${y}`;
+}
+function toggleGrayOutPastDays() {
+    grayOutPastDays = !grayOutPastDays;
+    const btn = document.getElementById('btnTogglePast');
+    if (btn) {
+        btn.textContent = grayOutPastDays ? '⏳ Wyszarzanie minionych dni: WŁ.' : '⏳ Wyszarzanie minionych dni: WYŁ.';
+    }
+    renderCalendar();
+}
+
+function updateAccessLevelUI() {
+    const roleBadge = document.getElementById('roleBadge');
+    const btnLogin = document.getElementById('btnAdminLogin');
+    const btnLogout = document.getElementById('btnAdminLogout');
+    const hintText = document.getElementById('calendarHintText');
+    const adminElements = document.querySelectorAll('.admin-only');
+
+    if (isAdmin) {
+        roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-extrabold bg-amber-500 text-slate-950 shadow-xs';
+        roleBadge.innerHTML = '<span>👑 Tryb: ADMIN (Pełna edycja)</span>';
+        btnLogin.classList.add('hidden');
+        btnLogout.classList.remove('hidden');
+        if (hintText) hintText.innerHTML = '✏️ Jesteś w trybie <strong>ADMIN</strong>. Kliknij dowolny dzień, aby edytować.';
+        adminElements.forEach(el => el.classList.remove('hidden'));
+    } else {
+        roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        roleBadge.innerHTML = '<span>👁️ Tryb: USER (Tylko odczyt)</span>';
+        btnLogin.classList.remove('hidden');
+        btnLogout.classList.add('hidden');
+        if (hintText) hintText.innerHTML = '👁️ Jesteś w trybie <strong>USER (Tylko odczyt)</strong>. Kliknij dzień, aby zobaczyć szczegóły.';
+        adminElements.forEach(el => el.classList.add('hidden'));
+    }
+    renderHistory();
+}
+
+function openAdminLoginModal() {
+    const modal = document.getElementById('adminLoginModal');
+    const input = document.getElementById('adminPinInput');
+    input.value = '';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => input.focus(), 50);
+}
+function closeAdminLoginModal() {
+    document.getElementById('adminLoginModal').classList.add('hidden');
+    document.getElementById('adminLoginModal').classList.remove('flex');
+}
+function submitAdminPin(e) {
+    e.preventDefault();
+    const val = document.getElementById('adminPinInput').value.trim();
+    if (val === adminPin) {
+        isAdmin = true;
+        closeAdminLoginModal();
+        updateAccessLevelUI();
+        showToast('👑 Zalogowano jako Administrator!');
+    } else {
+        showToast('❌ Nieprawidłowy PIN!');
+    }
+}
+function logoutAdmin() {
+    isAdmin = false;
+    updateAccessLevelUI();
+    showToast('👁️ Wylogowano z trybu Admin.');
+}
+
+function renderLogo() {
+    const imgEl = document.getElementById('flikuLogoImg');
+    const crestEl = document.getElementById('flikuDefaultCrest');
+    if (customLogoData && customLogoData.startsWith('data:image')) {
+        imgEl.src = customLogoData;
+        imgEl.classList.remove('hidden');
+        crestEl.classList.add('hidden');
+    } else {
+        imgEl.classList.add('hidden');
+        crestEl.classList.remove('hidden');
+    }
+}
+
+function handleLogoUpload(event) {
+    if (!isAdmin) return;
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const maxDim = 360;
+            let w = img.width, h = img.height;
+            if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else if (h >= w && h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            customLogoData = canvas.toDataURL('image/jpeg', 0.84);
+            renderLogo();
+            saveState();
+            showToast('🖼️ Zapisano logo!');
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function getDriverByCode(code) {
+    return driversList.find(d => d.code === code) || { code, name: code, color: '#64748b' };
+}
+function saveState() {
+    saveLocalBackup();
+    renderAll();
+    pushLocalStateToFirebase(true);
+}
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+function renderAll() {
+    renderLegend();
+    renderCalendar();
+    renderDebtsAndStats();
+    renderHistory();
+}
+function renderLegend() {
+    const leg = document.getElementById('legendContainer');
+    leg.innerHTML = '';
+    driversList.forEach(drv => {
+        const span = document.createElement('span');
+        span.className = 'px-2.5 py-1 rounded-md text-white shadow-2xs';
+        span.style.backgroundColor = drv.color;
+        span.textContent = `${drv.code} - ${drv.name}`;
+        leg.appendChild(span);
+    });
+}
+function renderCalendar() {
+    const container = document.getElementById('calendarContainer');
+    container.innerHTML = '';
+    scheduleData.forEach((m, mIndex) => {
+        const block = document.createElement('div');
+        block.className = 'border border-slate-300 rounded-xl overflow-hidden bg-white shadow-2xs';
+        const scrollWrap = document.createElement('div');
+        scrollWrap.className = 'table-scroll overflow-x-auto';
+        const table = document.createElement('table');
+        table.className = 'schedule-table';
+        const trDays = document.createElement('tr');
+        const trShifts = document.createElement('tr');
+
+        const thMonth = document.createElement('th');
+        thMonth.style.width = '126px';
+        thMonth.className = 'bg-slate-900 text-amber-400 font-extrabold text-xs sm:text-sm tracking-wide px-2 py-1';
+        thMonth.innerHTML = `<div class="font-luxury">${m.name}</div><div class="text-[10px] font-medium text-slate-300">${m.plName}</div>`;
+        trDays.appendChild(thMonth);
+
+        const tdMonthEmpty = document.createElement('td');
+        tdMonthEmpty.className = 'bg-slate-50 text-[11px] text-slate-500 font-semibold px-1';
+        tdMonthEmpty.textContent = 'Zmiana / Kierowca';
+        trShifts.appendChild(tdMonthEmpty);
+
+        for (let d = 1; d <= 31; d++) {
+            const th = document.createElement('th');
+            const td = document.createElement('td');
+            if (d > m.days) {
+                th.className = 'bg-slate-100 border-slate-200';
+                td.className = 'bg-slate-100 border-slate-200';
+                trDays.appendChild(th);
+                trShifts.appendChild(td);
+                continue;
+            }
+            const dayStatus = getDayStatus(m, d);
+            th.className = 'day-header';
+            if (m.hol && m.hol.includes(d)) th.classList.add('hol');
+            else if (m.wknd && m.wknd.includes(d)) th.classList.add('wknd');
+            if (dayStatus === 'past' && grayOutPastDays) th.classList.add('past-header');
+            else if (dayStatus === 'today') th.classList.add('today-header');
+
+            th.innerHTML = dayStatus === 'today' ? `<span>${d}</span><span class="block text-[8px] leading-none font-black uppercase">DZIŚ</span>` : `${d}`;
+            trDays.appendChild(th);
+
+            td.className = 'shift-cell';
+            const isYel = m.yel && m.yel.includes(d);
+            if (isYel) td.classList.add('yel');
+
+            const shift = m.shifts[d] || '';
+            const plan = m.planned[d] || '';
+            const act = m.actual[d] || '';
+            const note = m.notes[d] || '';
+            const isSub = act && act !== plan;
+
+            if (isSub) td.classList.add('subbed');
+            if (shift === 'Ø') td.classList.add('slash-cell');
+            if (dayStatus === 'past' && grayOutPastDays) td.classList.add('past-day');
+            else if (dayStatus === 'today') td.classList.add('today-cell');
+
+            let innerHTML = `<div class="shift-code">${shift === 'Ø' ? 'Ø' : shift}</div>`;
+            if (isSub) {
+                const planDrv = getDriverByCode(plan);
+                const actDrv = getDriverByCode(act);
+                innerHTML += `<div class="flex flex-col items-center leading-none mt-0.5"><span class="line-through text-[10px] font-bold opacity-65" style="color:${planDrv.color}">${plan || '?'}</span><span class="text-xs font-black px-1 py-0.5 rounded bg-white border border-amber-500 shadow-2xs" style="color:${actDrv.color}">${act}</span></div>`;
+            } else if (plan) {
+                const planDrv = getDriverByCode(plan);
+                innerHTML += `<div class="font-extrabold text-sm mt-1" style="color:${planDrv.color}">${plan}</div>`;
+            } else if (isYel) {
+                innerHTML += `<div class="text-[9px] font-bold text-amber-950/70 mt-1 leading-tight">URLOP</div>`;
+            }
+            if (note) td.title = note;
+            td.innerHTML = innerHTML;
+            td.onclick = () => handleDayCellClick(mIndex, d);
+            trShifts.appendChild(td);
+        }
+        table.appendChild(trDays);
+        table.appendChild(trShifts);
+        scrollWrap.appendChild(table);
+        block.appendChild(scrollWrap);
+        container.appendChild(block);
+    });
+}
+
+function handleDayCellClick(mIndex, day) {
+    if (isAdmin) openEditModal(mIndex, day);
+    else openUserViewModal(mIndex, day);
+}
+
+function openUserViewModal(mIndex, day) {
+    const m = scheduleData[mIndex];
+    const shift = m.shifts[day] || 'Wolne / Brak';
+    const plan = m.planned[day] || '';
+    const act = m.actual[day] || '';
+    const note = m.notes[day] || '';
+    const isYel = m.yel && m.yel.includes(day);
+    const dayStatus = getDayStatus(m, day);
+
+    document.getElementById('userModalTitle').textContent = `${day} ${m.name} (${m.plName})`;
+    const planDrv = plan ? getDriverByCode(plan) : null;
+    const actDrv = act ? getDriverByCode(act) : null;
+
+    let statusBadge = dayStatus === 'past' ? '<span class="px-2 py-0.5 rounded bg-slate-200 text-xs font-bold">Miniony</span>' : (dayStatus === 'today' ? '<span class="px-2 py-0.5 rounded bg-amber-500 text-xs font-extrabold">Dzisiaj</span>' : '<span class="px-2 py-0.5 rounded bg-emerald-100 text-xs font-bold">Nadchodzący</span>');
+
+    document.getElementById('userModalBody').innerHTML = `
+        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border"><span>Status:</span>${statusBadge}</div>
+        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border"><span>Zmiana:</span><strong>${shift} ${isYel ? '(🏖️ URLOP)' : ''}</strong></div>
+        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border"><span>Planowany:</span>${planDrv ? `<span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${planDrv.color}">${planDrv.name}</span>` : 'Brak'}</div>
+        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border"><span>Faktycznie:</span>${actDrv ? `<span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${actDrv.color}">${actDrv.name} (Zastępstwo)</span>` : (planDrv ? '<span class="text-xs font-bold text-emerald-700">Zgodnie z planem</span>' : '-')}</div>
+        ${note ? `<div class="bg-amber-50 border p-2.5 rounded-xl text-xs"><strong>Notatka:</strong> ${note}</div>` : ''}
+    `;
+    const modal = document.getElementById('userViewModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+function closeUserViewModal() {
+    document.getElementById('userViewModal').classList.add('hidden');
+    document.getElementById('userViewModal').classList.remove('flex');
+}
+
+function calculateDebtsAndStats() {
+    const codes = driversList.map(d => d.code);
+    const droveFor = {};
+    const stats = {};
+    codes.forEach(c => {
+        droveFor[c] = {};
+        codes.forEach(c2 => droveFor[c][c2] = 0);
+        stats[c] = { planned: 0, actual: 0 };
+    });
+    scheduleData.forEach(m => {
+        for (let d = 1; d <= m.days; d++) {
+            const plan = m.planned[d] || '';
+            const act = m.actual[d] || plan;
+            if (plan && stats[plan]) stats[plan].planned++;
+            if (act && stats[act]) stats[act].actual++;
+            if (plan && act && plan !== act) {
+                if (!droveFor[act]) droveFor[act] = {};
+                droveFor[act][plan] = (droveFor[act][plan] || 0) + 1;
+            }
+        }
+    });
+    const debts = [];
+    for (let i = 0; i < codes.length; i++) {
+        for (let j = i + 1; j < codes.length; j++) {
+            const A = codes[i], B = codes[j];
+            const aForB = (droveFor[A] && droveFor[A][B]) || 0;
+            const bForA = (droveFor[B] && droveFor[B][A]) || 0;
+            const diff = aForB - bForA;
+            if (diff > 0) debts.push({ debtor: B, creditor: A, count: diff });
+            else if (diff < 0) debts.push({ debtor: A, creditor: B, count: Math.abs(diff) });
+        }
+    }
+    return { debts, stats };
+}
+
+function formatRideWord(count) {
+    if (count === 1) return 'kurs';
+    if (count >= 2 && count <= 4) return 'kursy';
+    return 'kursów';
+}
+
+function renderDebtsAndStats() {
+    const { debts, stats } = calculateDebtsAndStats();
+    const container = document.getElementById('debtsContainer');
+    container.innerHTML = '';
+    if (debts.length === 0) {
+        container.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 text-emerald-900"><span class="text-2xl">✅</span><div><div class="font-bold text-sm">Wszyscy są rozliczeni na zero!</div></div></div>`;
+    } else {
+        debts.forEach(item => {
+            const debtor = getDriverByCode(item.debtor);
+            const creditor = getDriverByCode(item.creditor);
+            const row = document.createElement('div');
+            row.className = 'bg-amber-50/90 border-l-4 border-amber-500 rounded-xl p-3 flex items-center justify-between gap-2';
+            row.innerHTML = `<div class="text-sm text-slate-800 flex items-center flex-wrap gap-1.5"><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${debtor.color}">${debtor.name} (${debtor.code})</span><span>musi odjechać koledze</span><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${creditor.color}">${creditor.name} (${creditor.code})</span></div><span class="bg-amber-500 text-white font-extrabold text-sm px-3 py-1 rounded-lg">${item.count} ${formatRideWord(item.count)}</span>`;
+            container.appendChild(row);
+        });
+    }
+
+    const statsGrid = document.getElementById('statsGrid');
+    statsGrid.innerHTML = '';
+    driversList.forEach(drv => {
+        const st = stats[drv.code] || { planned: 0, actual: 0 };
+        const diff = st.actual - st.planned;
+        let diffBadge = `<span class="text-[11px] text-slate-500">Zgodnie z planem</span>`;
+        if (diff > 0) diffBadge = `<span class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">+${diff}</span>`;
+        else if (diff < 0) diffBadge = `<span class="text-[11px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">${diff}</span>`;
+
+        const card = document.createElement('div');
+        card.className = 'rounded-xl p-3 border-2 bg-slate-50 flex flex-col justify-between';
+        card.style.borderColor = drv.color;
+        card.innerHTML = `<div class="flex items-center justify-between mb-1.5"><span class="font-extrabold text-sm" style="color:${drv.color}">${drv.name}</span><span class="w-6 h-6 rounded-md text-white font-black text-xs flex items-center justify-center" style="background-color:${drv.color}">${drv.code}</span></div><div class="text-xs text-slate-600 space-y-0.5 mb-2"><div class="flex justify-between"><span>Plan:</span><strong>${st.planned}</strong></div><div class="flex justify-between"><span>Pojechał:</span><strong>${st.actual}</strong></div></div><div>${diffBadge}</div>`;
+        statsGrid.appendChild(card);
+    });
+}
+
+function renderHistory() {
+    const container = document.getElementById('historyContainer');
+    const badge = document.getElementById('subCountBadge');
+    container.innerHTML = '';
+    let entries = [];
+    scheduleData.forEach((m, mIndex) => {
+        for (let d = 1; d <= m.days; d++) {
+            const plan = m.planned[d] || '';
+            const act = m.actual[d] || '';
+            const note = m.notes[d] || '';
+            if (act && act !== plan) {
+                entries.push({ mIndex, day: d, monthName: m.name, shift: m.shifts[d] || '-', plan, act, note });
+            }
+        }
+    });
+    badge.textContent = `${entries.length} wpisów`;
+    if (entries.length === 0) {
+        container.innerHTML = `<div class="py-6 text-center text-slate-400 text-sm">Brak zastępstw.</div>`;
+        return;
+    }
+    entries.forEach(item => {
+        const actDrv = getDriverByCode(item.act);
+        const planDrv = item.plan ? getDriverByCode(item.plan) : null;
+        const row = document.createElement('div');
+        row.className = 'py-3 flex items-center justify-between gap-2';
+        row.innerHTML = `<div class="text-sm flex items-center gap-1.5"><span class="font-extrabold bg-slate-100 px-2 py-0.5 rounded">${item.day} ${item.monthName}</span><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${actDrv.color}">${actDrv.name}</span><span>za</span>${planDrv ? `<span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${planDrv.color}">${planDrv.name}</span>` : 'brak'}</div>${isAdmin ? `<button onclick="revertSubstitution(${item.mIndex}, ${item.day})" class="text-xs text-red-700 bg-red-100 px-2 py-1 rounded cursor-pointer">Cofnij</button>` : ''}`;
+        container.appendChild(row);
+    });
+}
+function revertSubstitution(mIndex, day) {
+    if (!isAdmin) return;
+    delete scheduleData[mIndex].actual[day];
+    delete scheduleData[mIndex].notes[day];
+    saveState();
+    showToast('Cofnięto zastępstwo.');
+}
+
+function openEditModal(mIndex, day) {
+    if (!isAdmin) { openUserViewModal(mIndex, day); return; }
+    const m = scheduleData[mIndex];
+    const plan = m.planned[day] || '';
+    const act = m.actual[day] || '';
+    activeModalCell = { mIndex, day, selectedActual: act };
+
+    const btnsContainer = document.getElementById('quickActualBtns');
+    let btnsHtml = `<button type="button" onclick="selectActualDriver('')" id="btnAct_" class="col-span-2 py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer">✅ Zgodnie z planem</button>`;
+    driversList.forEach(drv => {
+        btnsHtml += `<button type="button" onclick="selectActualDriver('${drv.code}')" id="btnAct_${drv.code}" class="py-2 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer"><span class="w-3 h-3 rounded-full" style="background-color:${drv.color}"></span> ${drv.code} - ${drv.name}</button>`;
+    });
+    btnsContainer.innerHTML = btnsHtml;
+
+    const planSelect = document.getElementById('editPlan');
+    planSelect.innerHTML = `<option value="">-- Brak --</option>` + driversList.map(d => `<option value="${d.code}">${d.code} - ${d.name}</option>`).join('');
+
+    document.getElementById('modalTitle').textContent = `${day} ${m.name}`;
+    planSelect.value = plan;
+    document.getElementById('editShift').value = m.shifts[day] || '';
+    document.getElementById('editNote').value = m.notes[day] || '';
+    document.getElementById('editHol').checked = m.hol && m.hol.includes(day);
+    document.getElementById('editYel').checked = m.yel && m.yel.includes(day);
+    updateActualButtonsUI(act);
+
+    const modal = document.getElementById('editModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function onToggleYellowVacation(isChecked) {
+    if (isChecked) { document.getElementById('editPlan').value = ''; selectActualDriver(''); }
+}
+function selectActualDriver(code) {
+    activeModalCell.selectedActual = code;
+    updateActualButtonsUI(code);
+}
+function updateActualButtonsUI(selectedCode) {
+    const codes = ['', ...driversList.map(d => d.code)];
+    codes.forEach(c => {
+        const btn = document.getElementById('btnAct_' + c);
+        if (!btn) return;
+        if (c === selectedCode) {
+            btn.className = 'py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500 cursor-pointer';
+        } else {
+            btn.className = 'py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 border-slate-200 bg-white text-slate-700 cursor-pointer';
+        }
+    });
+}
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+    document.getElementById('editModal').classList.remove('flex');
+}
+function saveDayChanges() {
+    if (!isAdmin) return;
+    const { mIndex, day, selectedActual } = activeModalCell;
+    const m = scheduleData[mIndex];
+    const planVal = document.getElementById('editPlan').value;
+    const shiftVal = document.getElementById('editShift').value;
+    const noteVal = document.getElementById('editNote').value.trim();
+    const isHol = document.getElementById('editHol').checked;
+    const isYel = document.getElementById('editYel').checked;
+
+    if (planVal && !isYel) m.planned[day] = planVal; else delete m.planned[day];
+    if (shiftVal) m.shifts[day] = shiftVal; else delete m.shifts[day];
+    if (selectedActual && selectedActual !== planVal && !isYel) m.actual[day] = selectedActual; else delete m.actual[day];
+    if (noteVal) m.notes[day] = noteVal; else delete m.notes[day];
+
+    if (!m.hol) m.hol = [];
+    if (isHol && !m.hol.includes(day)) m.hol.push(day);
+    if (!isHol) m.hol = m.hol.filter(x => x !== day);
+
+    if (!m.yel) m.yel = [];
+    if (isYel && !m.yel.includes(day)) m.yel.push(day);
+    if (!isYel) m.yel = m.yel.filter(x => x !== day);
+
+    closeEditModal();
+    saveState();
+    showToast('Zapisano dzień');
+}
+
+function openDriversModal() {
+    if (!isAdmin) return;
+    renderDriversEditorList();
+    document.getElementById('driversModal').classList.remove('hidden');
+    document.getElementById('driversModal').classList.add('flex');
+}
+function closeDriversModal() {
+    document.getElementById('driversModal').classList.add('hidden');
+    document.getElementById('driversModal').classList.remove('flex');
+}
+function renderDriversEditorList() {
+    const listEl = document.getElementById('driversListEditor');
+    listEl.innerHTML = '';
+    driversList.forEach((drv, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 bg-white border rounded-xl p-2.5';
+        row.innerHTML = `<div class="flex items-center gap-2 flex-1"><input type="color" value="${drv.color}" onchange="updateDriverColor(${idx}, this.value)" class="w-7 h-7 rounded cursor-pointer border-0"><span class="w-7 h-7 rounded-lg text-white font-black text-xs flex items-center justify-center shrink-0" style="background-color:${drv.color}">${drv.code}</span><input type="text" value="${drv.name}" onchange="updateDriverName(${idx}, this.value)" class="w-full rounded-lg border px-2 py-1 text-xs font-bold"></div><button onclick="removeDriver(${idx})" class="px-2 py-1 rounded bg-red-50 text-red-600 font-bold text-xs cursor-pointer">Usuń</button>`;
+        listEl.appendChild(row);
+    });
+    const rotSelect = document.getElementById('rotStartDriver');
+    rotSelect.innerHTML = driversList.map(d => `<option value="${d.code}">${d.code} - ${d.name}</option>`).join('');
+}
+function updateDriverName(idx, newName) {
+    if (!isAdmin || !newName.trim()) return;
+    driversList[idx].name = newName.trim();
+    saveState();
+    renderDriversEditorList();
+}
+function updateDriverColor(idx, newColor) {
+    if (!isAdmin) return;
+    driversList[idx].color = newColor;
+    saveState();
+    renderDriversEditorList();
+}
+function removeDriver(idx) {
+    if (!isAdmin || driversList.length <= 1) return;
+    driversList.splice(idx, 1);
+    saveState();
+    renderDriversEditorList();
+}
+function addNewDriver() {
+    if (!isAdmin) return;
+    const code = document.getElementById('newDrvCode').value.trim().toUpperCase();
+    const name = document.getElementById('newDrvName').value.trim();
+    const color = document.getElementById('newDrvColor').value;
+    if (!code || !name) return;
+    driversList.push({ code, name, color });
+    document.getElementById('newDrvCode').value = '';
+    document.getElementById('newDrvName').value = '';
+    saveState();
+    renderDriversEditorList();
+}
+function autoAssignAllSchedule() {
+    if (!isAdmin) return;
+    const daysPerDrv = parseInt(document.getElementById('rotDaysPerDriver').value, 10) || 2;
+    const startCode = document.getElementById('rotStartDriver').value;
+    let drvIdx = Math.max(0, driversList.findIndex(d => d.code === startCode));
+    let streak = 0;
+    scheduleData.forEach((m, mIndex) => {
+        m.planned = {};
+        for (let d = 1; d <= m.days; d++) {
+            if (m.yel && m.yel.includes(d)) continue;
+            const sh = m.shifts[d] || '';
+            if (sh === 'R' || sh === 'O' || sh === 'N') {
+                m.planned[d] = driversList[drvIdx].code;
+                streak++;
+                if (streak >= daysPerDrv) { streak = 0; drvIdx = (drvIdx + 1) % driversList.length; }
+            }
+        }
+    });
+    saveState();
+    closeDriversModal();
+    showToast('Przeliczono grafik!');
+}
+
+function openScheduleGenModal() {
+    if (!isAdmin) return;
+    const startSelect1 = document.getElementById('genMonthStartDrv');
+    const startSelect2 = document.getElementById('fullYearStartDrv');
+    const opts = driversList.map(d => `<option value="${d.code}">${d.code} - ${d.name}</option>`).join('');
+    startSelect1.innerHTML = opts;
+    startSelect2.innerHTML = opts;
+    updateMonthPreviewGrid();
+    renderExistingMonthsList();
+    document.getElementById('scheduleGenModal').classList.remove('hidden');
+    document.getElementById('scheduleGenModal').classList.add('flex');
+}
+function closeScheduleGenModal() {
+    document.getElementById('scheduleGenModal').classList.add('hidden');
+    document.getElementById('scheduleGenModal').classList.remove('flex');
+}
+function switchSchedTab(tab) {
+    ['photo', 'year', 'file'].forEach(t => {
+        document.getElementById('schedTab_' + t).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById('tabBtn_' + t);
+        if (t === tab) btn.className = 'px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 text-white cursor-pointer';
+        else btn.className = 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 cursor-pointer';
+    });
+}
+function previewSchedulePhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('photoPreviewImg').src = e.target.result;
+        document.getElementById('photoPreviewWrap').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+function setCreatorBrush(b) {
+    creatorBrush = b;
+}
+function getDaysInMonth(year, monthIdx) { return new Date(year, monthIdx + 1, 0).getDate(); }
+function getWeekendsInMonth(year, monthIdx) {
+    const days = getDaysInMonth(year, monthIdx);
+    const wknd = [];
+    for (let d = 1; d <= days; d++) {
+        const dow = new Date(year, monthIdx, d).getDay();
+        if (dow === 0 || dow === 6) wknd.push(d);
+    }
+    return wknd;
+}
+function getCzechHolidays(monthIdx) {
+    const map = { 0: [1], 4: [1, 8], 6: [5, 6], 8: [28], 9: [28], 10: [17], 11: [24, 25, 26] };
+    return map[monthIdx] || [];
+}
+function updateMonthPreviewGrid() {
+    const mIdx = parseInt(document.getElementById('genMonthNum').value, 10);
+    const year = parseInt(document.getElementById('genYearNum').value, 10) || 2027;
+    const days = getDaysInMonth(year, mIdx);
+    const wknd = getWeekendsInMonth(year, mIdx);
+    const hol = getCzechHolidays(mIdx);
+    creatorTempShifts = {};
+    creatorTempYel = [];
+    hol.forEach(h => creatorTempShifts[h] = 'Ø');
+    renderCreatorGridCells(days, wknd, hol);
+}
+function renderCreatorGridCells(days, wknd, hol) {
+    const grid = document.getElementById('creatorDaysGrid');
+    grid.innerHTML = '';
+    for (let d = 1; d <= days; d++) {
+        const sh = creatorTempShifts[d] || '';
+        const isWknd = wknd.includes(d);
+        const isHol = hol.includes(d) || sh === 'Ø';
+        const isYel = creatorTempYel.includes(d);
+        const cell = document.createElement('div');
+        cell.className = `border rounded-lg overflow-hidden cursor-pointer select-none transition ${isYel ? 'bg-[#fcc419]' : 'bg-white'}`;
+        let hdrCls = 'text-[10px] font-bold py-0.5 text-center ';
+        if (isHol) hdrCls += 'bg-red-700 text-white';
+        else if (isWknd) hdrCls += 'bg-emerald-600 text-white';
+        else hdrCls += 'bg-slate-100 text-slate-800';
+
+        cell.innerHTML = `<div class="${hdrCls}">${d}</div><div class="h-8 flex flex-col items-center justify-center font-extrabold text-xs"><span>${sh || '-'}</span></div>`;
+        cell.onclick = () => {
+            if (creatorBrush === 'YEL') {
+                if (creatorTempYel.includes(d)) creatorTempYel = creatorTempYel.filter(x => x !== d);
+                else creatorTempYel.push(d);
+            } else if (creatorBrush) {
+                creatorTempShifts[d] = creatorBrush;
+            } else {
+                delete creatorTempShifts[d];
+                creatorTempYel = creatorTempYel.filter(x => x !== d);
+            }
+            renderCreatorGridCells(days, wknd, hol);
+        };
+        grid.appendChild(cell);
+    }
+}
+function saveCreatedMonthToSchedule() {
+    if (!isAdmin) return;
+    const mIdx = parseInt(document.getElementById('genMonthNum').value, 10);
+    const year = parseInt(document.getElementById('genYearNum').value, 10) || 2027;
+    const startDrv = document.getElementById('genMonthStartDrv').value;
+    const rotDays = 2;
+    const meta = MONTH_META[mIdx];
+    const days = getDaysInMonth(year, mIdx);
+    const wknd = getWeekendsInMonth(year, mIdx);
+    const hol = getCzechHolidays(mIdx);
+    const planned = {};
+    let drvIdx = Math.max(0, driversList.findIndex(d => d.code === startDrv));
+    let streak = 0;
+
+    for (let d = 1; d <= days; d++) {
+        if (creatorTempYel.includes(d)) continue;
+        const sh = creatorTempShifts[d] || '';
+        if (sh === 'R' || sh === 'O' || sh === 'N') {
+            planned[d] = driversList[drvIdx].code;
+            streak++;
+            if (streak >= rotDays) { streak = 0; drvIdx = (drvIdx + 1) % driversList.length; }
+        }
+    }
+    const newMonthObj = {
+        id: `${meta.cz.toLowerCase()}_${year}`,
+        name: meta.cz,
+        plName: `${meta.pl} ${year}`,
+        days, wknd, hol,
+        yel: [...creatorTempYel],
+        shifts: { ...creatorTempShifts },
+        planned, actual: {}, notes: {}
+    };
+    const existIdx = scheduleData.findIndex(m => m.id === newMonthObj.id);
+    if (existIdx >= 0) scheduleData[existIdx] = newMonthObj;
+    else scheduleData.push(newMonthObj);
+
+    saveState();
+    renderExistingMonthsList();
+    closeScheduleGenModal();
+    showToast('Zapisano miesiąc!');
+}
+function generateFullYearSchedule() {
+    if (!isAdmin) return;
+    const year = parseInt(document.getElementById('fullYearTarget').value, 10) || 2027;
+    const startDrv = document.getElementById('fullYearStartDrv').value;
+    const mode = document.getElementById('fullYearMode').value;
+    let drvIdx = Math.max(0, driversList.findIndex(d => d.code === startDrv));
+    let streak = 0, dayCounter = 0;
+    const shiftTypes = ['O', 'R', 'N'];
+    let shiftPtr = 0;
+    const newMonths = [];
+
+    for (let mIdx = 0; mIdx < 12; mIdx++) {
+        const meta = MONTH_META[mIdx];
+        const days = getDaysInMonth(year, mIdx);
+        const wknd = getWeekendsInMonth(year, mIdx);
+        const hol = getCzechHolidays(mIdx);
+        const shifts = {}, planned = {};
+        for (let d = 1; d <= days; d++) {
+            const dow = new Date(year, mIdx, d).getDay();
+            if (hol.includes(d)) { shifts[d] = 'Ø'; continue; }
+            const cyclePos = dayCounter % 8;
+            if (cyclePos < 5) {
+                const sh = shiftTypes[shiftPtr % 3];
+                shifts[d] = sh;
+                planned[d] = driversList[drvIdx].code;
+                streak++;
+                if (streak >= 2) { streak = 0; drvIdx = (drvIdx + 1) % driversList.length; }
+            } else if (cyclePos === 5) {
+                shiftPtr++;
+            }
+            dayCounter++;
+        }
+        newMonths.push({
+            id: `${meta.cz.toLowerCase()}_${year}`,
+            name: meta.cz, plName: `${meta.pl} ${year}`,
+            days, wknd, hol, yel: [], shifts, planned, actual: {}, notes: {}
+        });
+    }
+    if (mode === 'replace') scheduleData = newMonths;
+    else scheduleData = [...scheduleData, ...newMonths];
+
+    saveState();
+    renderExistingMonthsList();
+    closeScheduleGenModal();
+    showToast('Wygenerowano rok!');
+}
+function renderExistingMonthsList() {
+    const container = document.getElementById('existingMonthsList');
+    if (!container) return;
+    container.innerHTML = '';
+    scheduleData.forEach((m, idx) => {
+        const badge = document.createElement('div');
+        badge.className = 'inline-flex items-center gap-1.5 bg-white border rounded-lg px-2.5 py-1 text-xs font-bold';
+        badge.innerHTML = `<span>${m.name} (${m.plName})</span><button onclick="removeMonthAtIndex(${idx})" class="text-red-500 font-black cursor-pointer ml-1">&times;</button>`;
+        container.appendChild(badge);
+    });
+}
+function removeMonthAtIndex(idx) {
+    if (!isAdmin || scheduleData.length <= 1) return;
+    scheduleData.splice(idx, 1);
+    saveState();
+    renderExistingMonthsList();
+}
+function exportJsonFile() {
+    const dataStr = JSON.stringify({ drivers: driversList, schedule: scheduleData, logoData: customLogoData }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'fliku-calendar-backup.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+function importJsonFile(event) {
+    if (!isAdmin) return;
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            if (parsed.drivers && parsed.schedule) {
+                driversList = parsed.drivers;
+                scheduleData = parsed.schedule;
+                if (parsed.logoData) { customLogoData = parsed.logoData; renderLogo(); }
+                saveState();
+                showToast('Wczytano plik!');
+            }
+        } catch (err) {}
+    };
+    reader.readAsText(file);
+}
+
+function openResetConfirmModal() { if (isAdmin) document.getElementById('resetModal').classList.remove('hidden'), document.getElementById('resetModal').classList.add('flex'); }
+function closeResetConfirmModal() { document.getElementById('resetModal').classList.add('hidden'), document.getElementById('resetModal').classList.remove('flex'); }
+function confirmResetAll() {
+    if (!isAdmin) return;
+    driversList = JSON.parse(JSON.stringify(DEFAULT_DRIVERS));
+    scheduleData = JSON.parse(JSON.stringify(INITIAL_SCHEDULE));
+    closeResetConfirmModal();
+    saveState();
+    showToast('Zresetowano grafik.');
+}
+
+function copySummaryToClipboard() {
+    const { debts, stats } = calculateDebtsAndStats();
+    let lines = ['👑 FLIKU CALENDAR - ROZLICZENIE DOJAZDÓW 🚗', ''];
+    if (debts.length === 0) lines.push('✅ Wszyscy na czysto!');
+    else {
+        lines.push('⚖️ KTO KOMU:');
+        debts.forEach(d => {
+            const deb = getDriverByCode(d.debtor);
+            const cred = getDriverByCode(d.creditor);
+            lines.push(`👉 ${deb.name} musi odjechać ${cred.name}: ${d.count} ${formatRideWord(d.count)}`);
+        });
+    }
+    const text = lines.join('\n');
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('📋 Skopiowano do schowka!');
+}
+
+function downloadHtmlFile() {
+    if (!isAdmin) return;
+    let htmlContent = document.documentElement.outerHTML;
+    htmlContent = htmlContent.replace(/const DEFAULT_DRIVERS = \[[\s\S]*?\];/, `const DEFAULT_DRIVERS = ${JSON.stringify(driversList)};`);
+    htmlContent = htmlContent.replace(/const INITIAL_SCHEDULE = \[[\s\S]*?\];/, `const INITIAL_SCHEDULE = ${JSON.stringify(scheduleData)};`);
+    htmlContent = htmlContent.replace(/let EMBEDDED_CUSTOM_FIREBASE_CONFIG = [\s\S]*?;/, `let EMBEDDED_CUSTOM_FIREBASE_CONFIG = ${JSON.stringify(EMBEDDED_CUSTOM_FIREBASE_CONFIG)};`);
+    htmlContent = htmlContent.replace(/let EMBEDDED_ADMIN_PIN = "[\s\S]*?";/, `let EMBEDDED_ADMIN_PIN = ${JSON.stringify(adminPin)};`);
+    htmlContent = htmlContent.replace(/let EMBEDDED_LOGO_DATA = "[\s\S]*?";/, `let EMBEDDED_LOGO_DATA = ${JSON.stringify(customLogoData || "")};`);
+
+    const blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Fliku_Calendar.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('📥 Pobrano plik HTML!');
+}
+
+Object.assign(window, {
+    toggleGrayOutPastDays, openAdminLoginModal, closeAdminLoginModal, submitAdminPin, logoutAdmin,
+    handleLogoUpload, handleFirebaseBadgeClick, openFirebaseModal, closeFirebaseModal, saveFirebaseAndAdminConfig,
+    pushLocalStateToFirebase, closeUserViewModal, openEditModal, closeEditModal, onToggleYellowVacation,
+    selectActualDriver, saveDayChanges, revertSubstitution, openDriversModal, closeDriversModal,
+    updateDriverName, updateDriverColor, removeDriver, addNewDriver, autoAssignAllSchedule,
+    openScheduleGenModal, closeScheduleGenModal, switchSchedTab, previewSchedulePhoto, setCreatorBrush,
+    updateMonthPreviewGrid, saveCreatedMonthToSchedule, generateFullYearSchedule, removeMonthAtIndex,
+    exportJsonFile, importJsonFile, openResetConfirmModal, closeResetConfirmModal, confirmResetAll,
+    copySummaryToClipboard, downloadHtmlFile
+});
+
+window.onload = function() {
+    loadLocalBackup();
+    formatCurrentDateLabel();
+    renderLogo();
+    updateAccessLevelUI();
+    renderAll();
+    initFirebaseConnection();
+};
+</script>
+</body>
+</html>
