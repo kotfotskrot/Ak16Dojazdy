@@ -881,10 +881,11 @@ async function saveFirebaseAndAdminConfig() {
     const rawCfg = document.getElementById('firebaseConfigInput').value.trim();
     const newPin = document.getElementById('newAdminPinInput').value.trim();
     if (newPin) { adminPin = newPin; EMBEDDED_ADMIN_PIN = newPin; }
+    await pushLocalStateToFirebase(true);
     if (rawCfg) {
         try {
             const parsed = parseFirebaseConfigInput(rawCfg);
-            if (parsed && parsed.apiKey && parsed.projectId) {
+            if (parsed && parsed.apiKey && parsed.projectId && JSON.stringify(parsed) !== JSON.stringify(activeFirebaseConfig)) {
                 EMBEDDED_CUSTOM_FIREBASE_CONFIG = parsed;
                 activeFirebaseConfig = parsed;
                 await initFirebaseConnection(parsed);
