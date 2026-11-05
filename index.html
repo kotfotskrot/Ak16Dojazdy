@@ -64,12 +64,13 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
             user-select: none;
         }
         .day-header {
-            height: 32px;
+            height: 38px;
             font-weight: 700;
             font-size: 0.8rem;
             background-color: #f8fafc;
             color: #1e293b;
             position: relative;
+            line-height: 1.1;
         }
         .day-header.wknd {
             background-color: #2e9f44;
@@ -171,6 +172,11 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <div class="hidden md:inline-flex items-center gap-1.5 text-slate-400 pl-2 border-l border-slate-700">
 <span>📅 Dziś:</span>
 <strong class="text-amber-400 font-bold" id="currentDateLabel"></strong>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-emerald-500/40 transition cursor-pointer" id="czkRateBadge" onclick="fetchCzkRate(true)" title="Kurs zbliżony do Revolut (międzybankowy). Kliknij, aby odświeżyć.">
+<span>🇨🇿 1 CZK =</span>
+<strong class="text-emerald-400 font-extrabold" id="czkRateValue">...</strong>
+<span class="text-[10px] text-slate-400 hidden sm:inline" id="czkInvValue"></span>
 </div>
 </div>
 <div class="flex items-center gap-2">
@@ -678,6 +684,36 @@ const MONTH_META = [
     { cz: 'ČERVENEC', pl: 'Lipiec' }, { cz: 'SRPEN', pl: 'Sierpień' }, { cz: 'ZÁŘÍ', pl: 'Wrzesień' },
     { cz: 'ŘÍJEN', pl: 'Październik' }, { cz: 'LISTOPAD', pl: 'Listopad' }, { cz: 'PROSINEC', pl: 'Grudzień' }
 ];
+
+const DOW_NAMES_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
+
+async function fetchCzkRate(showNotification = false) {
+    const valEl = document.getElementById('czkRateValue');
+    const invEl = document.getElementById('czkInvValue');
+    if (!valEl) return;
+    try {
+        const res = await fetch('https://api.frankfurter.app/latest?from=CZK&to=PLN', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Błąd API');
+        const data = await res.json();
+        const rate = data.rates.PLN;
+        const inv = 1 / rate;
+        valEl.textContent = `${rate.toFixed(4)} zł`;
+        if (invEl) invEl.textContent = `(1 zł = ${inv.toFixed(2)} Kč)`;
+        if (showNotification) showToast(`🇨🇿 Odświeżono kurs: 1 CZK = ${rate.toFixed(4)} PLN`);
+    } catch (err) {
+        try {
+            const resNbp = await fetch('https://api.nbp.pl/api/exchangerates/rates/a/czk/?format=json');
+            const dataNbp = await resNbp.json();
+            const rate = dataNbp.rates[0].mid;
+            const inv = 1 / rate;
+            valEl.textContent = `${rate.toFixed(4)} zł`;
+            if (invEl) invEl.textContent = `(1 zł = ${inv.toFixed(2)} Kč)`;
+            if (showNotification) showToast(`🇨🇿 Kurs NBP: 1 CZK = ${rate.toFixed(4)} PLN`);
+        } catch (e) {
+            valEl.textContent = 'Błąd';
+        }
+    }
+}
 
 const DEFAULT_DRIVERS = [{"code":"K","name":"Karol","color":"#dc3545"},{"code":"D","name":"Daniel","color":"#0d6efd"},{"code":"P","name":"Paweł","color":"#198754"},{"code":"J","name":"Janusz","color":"#212529"}];
 const INITIAL_SCHEDULE = [{"id":"zari_2026","name":"ZÁŘÍ","plName":"Wrzesień 2026","days":30,"wknd":[5,6,12,13,19,20,26,27],"hol":[28],"yel":[],"shifts":{"1":"N","2":"N","7":"O","8":"O","9":"O","10":"O","11":"O","12":"O","14":"R","15":"R","16":"R","17":"R","20":"N","21":"N","22":"N","23":"N","24":"N","25":"N","28":"Ø","29":"O","30":"O"},"planned":{"8":"K","9":"K","10":"D","11":"D","12":"P","14":"P","15":"J","16":"J","17":"K","20":"K","21":"D","22":"D","23":"P","24":"P","25":"J","29":"J","30":"K"},"actual":{},"notes":{}},{"id":"rijen_2026","name":"ŘÍJEN","plName":"Październik 2026","days":31,"wknd":[3,4,10,11,17,18,24,25,31],"hol":[28],"yel":[],"shifts":{"1":"O","5":"R","6":"R","7":"R","8":"R","9":"R","10":"R","11":"N","12":"N","15":"N","16":"N","19":"O","20":"O","21":"O","22":"O","23":"O","24":"O","26":"R","27":"R","30":"R","31":"R"},"planned":{"1":"K","5":"D","6":"D","7":"P","8":"P","9":"J","10":"J","11":"K","12":"K","15":"D","16":"D","19":"P","20":"P","21":"J","22":"J","23":"K","24":"K","26":"D","27":"D","30":"P","31":"P"},"actual":{},"notes":{}},{"id":"listopad_2026","name":"LISTOPAD","plName":"Listopad 2026","days":30,"wknd":[1,7,8,14,15,21,22,28,29],"hol":[17],"yel":[16],"shifts":{"1":"N","2":"N","3":"N","4":"N","5":"N","6":"N","9":"O","10":"O","13":"O","14":"O","16":"R","17":"Ø","18":"R","19":"R","20":"R","21":"R","24":"N","25":"N","26":"N","27":"N","30":"O"},"planned":{"1":"J","2":"J","3":"K","4":"K","5":"D","6":"D","9":"P","10":"P","13":"J","14":"J","18":"K","19":"K","20":"D","21":"D","24":"P","25":"P","26":"J","27":"J","30":"K"},"actual":{},"notes":{}},{"id":"prosinec_2026","name":"PROSINEC","plName":"Grudzień 2026","days":31,"wknd":[5,6,12,13,19,20,26,27],"hol":[24,25,26],"yel":[23,28,29,30,31],"shifts":{"1":"O","2":"O","3":"O","4":"O","5":"O","9":"R","10":"R","11":"R","12":"R","13":"N","14":"N","15":"N","16":"N","17":"N","18":"N","23":"O","24":"Ø","25":"Ø","26":"Ø","28":"R","29":"R","30":"R","31":"R"},"planned":{"1":"K","2":"D","3":"D","4":"P","5":"P","9":"J","10":"J","11":"K","12":"K","13":"D","14":"D","15":"P","16":"P","17":"J","18":"J"},"actual":{},"notes":{}}];
@@ -1220,13 +1256,18 @@ function renderCalendar() {
                 continue;
             }
             const dayStatus = getDayStatus(m, d);
+            const { year, monthIdx } = resolveMonthAndYear(m);
+            const dowName = DOW_NAMES_PL[new Date(year, monthIdx, d).getDay()];
+
             th.className = 'day-header';
             if (m.hol && m.hol.includes(d)) th.classList.add('hol');
             else if (m.wknd && m.wknd.includes(d)) th.classList.add('wknd');
             if (dayStatus === 'past' && grayOutPastDays) th.classList.add('past-header');
             else if (dayStatus === 'today') th.classList.add('today-header');
 
-            th.innerHTML = dayStatus === 'today' ? `<span>${d}</span><span class="block text-[8px] leading-none font-black uppercase">DZIŚ</span>` : `${d}`;
+            th.innerHTML = dayStatus === 'today'
+                ? `<div class="leading-none">${d}</div><div class="text-[8px] leading-none font-black uppercase mt-0.5">DZIŚ (${dowName})</div>`
+                : `<div class="leading-none">${d}</div><div class="text-[9px] font-normal opacity-80 leading-none mt-0.5">${dowName}</div>`;
             trDays.appendChild(th);
 
             td.className = 'shift-cell';
@@ -2586,7 +2627,7 @@ Object.assign(window, {
     updateMonthPreviewGrid, saveCreatedMonthToSchedule, generateFullYearSchedule, removeMonthAtIndex,
     exportJsonFile, importJsonFile, openResetConfirmModal, closeResetConfirmModal, confirmResetAll,
     copySummaryToClipboard, downloadHtmlFile, openTutorial, closeTutorial, tutToggle, tutGo, tutVoiceChanged,
-    tutAudioParamChanged, handleTutVideoUpload, resetTutCustomVideo, selectToJ, refreshToJSection
+    tutAudioParamChanged, handleTutVideoUpload, resetTutCustomVideo, selectToJ, refreshToJSection, fetchCzkRate
 });
 
 window.onload = function() {
@@ -2596,6 +2637,8 @@ window.onload = function() {
     updateAccessLevelUI();
     renderAll();
     initFirebaseConnection();
+    fetchCzkRate();
+    setInterval(() => fetchCzkRate(false), 30 * 60 * 1000);
 };
 </script>
 </body>
