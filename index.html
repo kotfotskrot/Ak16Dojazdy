@@ -800,14 +800,23 @@ async function fetchCzkRate(showNotification = false) {
 
     try {
         let referenceRate = null;
-        let sourceLabel = 'kurs referencyjny';
+        let sourceLabel = 'kurs referencyjny EBC';
+        let rateDate = null;
 
         // Frankfurter udostępnia kursy referencyjne oparte na danych banków centralnych.
         try {
-            const res = await fetch('https://api.frankfurter.app/latest?from=CZK&to=PLN', { cache: 'no-store' });
-            if (!res.ok) throw new Error('Frankfurter API');
-            const data = await res.json();
+            let data = null;
+            for (const url of ['https://api.frankfurter.dev/v1/latest?base=CZK&symbols=PLN', 'https://api.frankfurter.app/latest?from=CZK&to=PLN']) {
+                try {
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) continue;
+                    data = await res.json();
+                    if (data?.rates?.PLN) break;
+                } catch (e) { /* próbujemy kolejny adres */ }
+            }
+            if (!data) throw new Error('Frankfurter API');
             referenceRate = Number(data?.rates?.PLN);
+            rateDate = data?.date || null;
             if (!Number.isFinite(referenceRate) || referenceRate <= 0) throw new Error('Nieprawidłowy kurs');
         } catch (primaryError) {
             // Awaryjnie pobieramy średni kurs NBP.
@@ -815,6 +824,7 @@ async function fetchCzkRate(showNotification = false) {
             if (!resNbp.ok) throw new Error('Frankfurter i NBP niedostępne');
             const dataNbp = await resNbp.json();
             referenceRate = Number(dataNbp?.rates?.[0]?.mid);
+            rateDate = dataNbp?.rates?.[0]?.effectiveDate || null;
             if (!Number.isFinite(referenceRate) || referenceRate <= 0) throw new Error('Nieprawidłowy kurs NBP');
             sourceLabel = 'kurs NBP';
         }
@@ -829,7 +839,10 @@ async function fetchCzkRate(showNotification = false) {
         valEl.textContent = `${numberRate.format(estimatedRate)} zł`;
         if (invEl) invEl.textContent = `(1 zł ≈ ${numberRate.format(inverse)} Kč)`;
         if (amountEl) amountEl.textContent = `10 000 Kč ≈ ${numberPLN.format(estimatedPLN)} zł`;
-        if (updatedEl) updatedEl.textContent = `Aktualizacja: ${now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · ${sourceLabel} · bufor 0,5%`;
+        if (updatedEl) {
+            const dateTxt = rateDate ? `${rateDate.slice(8, 10)}.${rateDate.slice(5, 7)}` : '?';
+            updatedEl.textContent = `Kurs z dnia ${dateTxt} · ${sourceLabel} · sprawdzono ${now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`;
+        }
         const badge = document.getElementById('czkRateBadge');
         if (badge) badge.title = `Szacunek na podstawie ${sourceLabel}, po odjęciu bufora 0,5%. Rzeczywisty kurs Revolut może się różnić. Kliknij, aby odświeżyć.`;
 
