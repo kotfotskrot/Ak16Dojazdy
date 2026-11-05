@@ -1482,8 +1482,9 @@ function renderHistory() {
         const actDrv = getDriverByCode(item.act);
         const planDrv = item.plan ? getDriverByCode(item.plan) : null;
         const row = document.createElement('div');
-        row.className = 'py-3 flex items-center justify-between gap-2';
-        row.innerHTML = `<div class="text-sm flex items-center gap-1.5"><span class="font-extrabold bg-slate-100 px-2 py-0.5 rounded">${item.day} ${item.monthName}</span><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${actDrv.color}">${actDrv.name}</span><span>za</span>${planDrv ? `<span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${planDrv.color}">${planDrv.name}</span>` : 'brak'}</div>${isAdmin ? `<button onclick="revertSubstitution(${item.mIndex}, ${item.day})" class="text-xs text-red-700 bg-red-100 px-2 py-1 rounded cursor-pointer">Cofnij</button>` : ''}`;
+        row.className = 'py-3';
+        const noteHtml = item.note ? `<div class="mt-1.5 bg-amber-50 border border-amber-200 text-amber-900 p-2 rounded-lg text-xs"><strong>📝 Notatka:</strong> ${String(item.note).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}</div>` : '';
+        row.innerHTML = `<div class="flex items-center justify-between gap-2"><div class="text-sm flex items-center gap-1.5"><span class="font-extrabold bg-slate-100 px-2 py-0.5 rounded">${item.day} ${item.monthName}</span><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${actDrv.color}">${actDrv.name}</span><span>za</span>${planDrv ? `<span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${planDrv.color}">${planDrv.name}</span>` : 'brak'}</div>${isAdmin ? `<button onclick="revertSubstitution(${item.mIndex}, ${item.day})" class="text-xs text-red-700 bg-red-100 px-2 py-1 rounded cursor-pointer">Cofnij</button>` : ''}</div>${noteHtml}`;
         container.appendChild(row);
     });
 }
