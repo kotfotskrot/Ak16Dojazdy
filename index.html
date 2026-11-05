@@ -192,6 +192,11 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <button class="hidden items-center gap-1.5 bg-red-600/90 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnAdminLogout" onclick="logoutAdmin()">
 <span>🔓 Wyloguj Admina</span>
 </button>
+<button type="button" class="inline-flex flex-col items-start gap-0.5 px-3 py-1 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-amber-500/40 transition cursor-pointer text-left" id="fuelMaxBadge" onclick="fetchFuelMax(true)" title="Oficjalna maksymalna cena detaliczna (program CPN, obwieszczenie Ministra Energii). Obowiązuje na wszystkich stacjach w Polsce. Kliknij, aby odświeżyć.">
+<span class="flex items-center gap-1.5 text-xs"><span>⛽ Max (CPN):</span><strong class="text-amber-400 font-extrabold" id="fuelMaxToday">...</strong></span>
+<span class="text-[10px] text-sky-300 font-semibold" id="fuelMaxTomorrow"></span>
+<span class="text-[9px] text-slate-400 font-normal" id="fuelMaxNote">Oczekiwanie na ceny...</span>
+</button>
 </div>
 </div>
 <header class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl p-4 sm:p-6 shadow-xl border-2 border-amber-500/50 mb-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 relative overflow-hidden">
@@ -710,6 +715,77 @@ const MONTH_META = [
 
 const DOW_NAMES_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 
+// ===== Ceny maksymalne paliw (CPN) - oficjalne obwieszczenia Ministra Energii =====
+const FUEL_MAX_KEY = 'fliku_fuel_max_v1';
+const FUEL_MONTHS_SLUG = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','wrzesnia','pazdziernika','listopada','grudnia'];
+const FUEL_PROXIES = [
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u)
+];
+function fuelDateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+async function fetchFuelDay(date) {
+    const slug = `maksymalna-cena-detaliczna-paliw-obowiazujaca-${date.getDate()}-${FUEL_MONTHS_SLUG[date.getMonth()]}-${date.getFullYear()}-r`;
+    const target = `https://www.gov.pl/web/energia/${slug}`;
+    for (const build of FUEL_PROXIES) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 9000);
+        try {
+            const r = await fetch(build(target), { signal: ctrl.signal, cache: 'no-store' });
+            if (!r.ok) continue;
+            const t = await r.text();
+            const m = t.match(/Benzyna 95\s*[-–]\s*(\d+,\d+)[^<]{0,60}?benzyna 98\s*[-–]\s*(\d+,\d+)[^<]{0,60}?olej nap[ęe]dowy\s*[-–]\s*(\d+,\d+)/i);
+            if (m) return { date: fuelDateKey(date), pb95: m[1], pb98: m[2], on: m[3] };
+        } catch (e) { /* kolejny serwer pośredniczący */ }
+        finally { clearTimeout(timer); }
+    }
+    return null;
+}
+function renderFuelMax() {
+    const todayEl = document.getElementById('fuelMaxToday');
+    if (!todayEl) return;
+    let c = null;
+    try { c = JSON.parse(localStorage.getItem(FUEL_MAX_KEY) || 'null'); } catch (e) {}
+    const now = new Date(), todayKey = fuelDateKey(now);
+    const tmr = new Date(now.getTime() + 86400000), tmrKey = fuelDateKey(tmr);
+    const noteEl = document.getElementById('fuelMaxNote'), tmrEl = document.getElementById('fuelMaxTomorrow');
+    if (!c || !c.days || !Object.keys(c.days).length) { todayEl.textContent = 'Brak danych'; tmrEl.textContent = ''; return; }
+    const keys = Object.keys(c.days).sort();
+    const curKey = c.days[todayKey] ? todayKey : keys.filter(k => k <= todayKey).pop() || keys[0];
+    const cur = c.days[curKey];
+    const label = curKey === todayKey ? '' : ` (z ${curKey.slice(8)}.${curKey.slice(5, 7)})`;
+    todayEl.textContent = `Pb95 ${cur.pb95} · ON ${cur.on} zł/l${label}`;
+    const nxt = c.days[tmrKey];
+    tmrEl.textContent = nxt ? `Jutro: Pb95 ${nxt.pb95} · ON ${nxt.on}` : '';
+    const upd = c.fetchedAt ? new Date(c.fetchedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '';
+    noteEl.textContent = `Limit dla stacji w PL · akt. ${upd} · Dobruška (CZ) bez limitu`;
+}
+async function fetchFuelMax(showNotification = false) {
+    renderFuelMax();
+    const days = {};
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem(FUEL_MAX_KEY) || 'null'); } catch (e) {}
+    if (old && old.days) Object.assign(days, old.days);
+    const base = new Date();
+    // dziś, jutro i do 3 dni wstecz (weekendowe obwieszczenia bywają zbiorcze)
+    const offsets = [0, 1, -1, -2, -3];
+    let got = 0;
+    for (const off of offsets) {
+        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + off);
+        if (off < 0 && days[fuelDateKey(d)]) continue;
+        const r = await fetchFuelDay(d);
+        if (r) { days[r.date] = r; got++; }
+        if (off === 0 && r) { /* mamy dzisiejszą cenę – nie szukamy wstecz */ offsets.length = Math.min(offsets.length, 2); }
+    }
+    const keep = Object.keys(days).sort().slice(-8);
+    const trimmed = {}; keep.forEach(k => trimmed[k] = days[k]);
+    if (got) { try { localStorage.setItem(FUEL_MAX_KEY, JSON.stringify({ fetchedAt: Date.now(), days: trimmed })); } catch (e) {} }
+    renderFuelMax();
+    if (showNotification) {
+        showToast(got ? '⛽ Cena maksymalna obowiązuje na wszystkich stacjach w PL (Leclerc Kłodzko, Orlen Polanica i Duszniki, Pieprzyk Duszniki). Orlen Dobruška to Czechy – limit tam nie działa.'
+                      : '⛽ Nie udało się pobrać cen maksymalnych. Pokazuję ostatnie znane.');
+    }
+}
+
 async function fetchCzkRate(showNotification = false) {
     const valEl = document.getElementById('czkRateValue');
     const invEl = document.getElementById('czkInvValue');
@@ -1112,6 +1188,7 @@ async function submitFeedback(event) {
     try {
         let saved = false;
         if (activeDbMode === 'rtdb' && rtdb) {
+            if (auth && !auth.currentUser) { try { await signInAnonymously(auth); } catch (e) {} }
             await set(ref(rtdb, `fliku_calendar/feedback/${id}`), payload);
             saved = true;
         } else if (activeFirebaseConfig?.databaseURL) {
@@ -1128,7 +1205,7 @@ async function submitFeedback(event) {
         if (isAdmin && !document.getElementById('feedbackInboxModal').classList.contains('hidden')) loadFeedbackInbox();
     } catch (err) {
         console.error('Feedback send error:', err);
-        showToast('❌ Nie udało się wysłać. Sprawdź połączenie z Firebase.');
+        showToast('❌ Nie udało się wysłać: ' + ((err && (err.code || err.message)) || 'nieznany błąd') + (location.protocol === 'file:' ? ' — otwórz aplikację z linku GitHub Pages, nie z pliku.' : ''));
     } finally {
         btn.disabled = false; btn.textContent = 'Wyślij wiadomość';
     }
@@ -2839,6 +2916,9 @@ window.onload = function() {
     initFirebaseConnection();
     fetchCzkRate();
     setInterval(() => fetchCzkRate(false), 5 * 60 * 1000);
+    renderFuelMax();
+    fetchFuelMax(false);
+    setInterval(() => fetchFuelMax(false), 3 * 60 * 60 * 1000);
 };
 </script>
 </body>
