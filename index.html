@@ -173,13 +173,15 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <span>📅 Dziś:</span>
 <strong class="text-amber-400 font-bold" id="currentDateLabel"></strong>
 </div>
-<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-emerald-500/40 transition cursor-pointer" id="czkRateBadge" onclick="fetchCzkRate(true)" title="Kurs zbliżony do Revolut (międzybankowy). Kliknij, aby odświeżyć.">
-<span>🇨🇿 1 CZK =</span>
-<strong class="text-emerald-400 font-extrabold" id="czkRateValue">...</strong>
-<span class="text-[10px] text-slate-400 hidden sm:inline" id="czkInvValue"></span>
+<button type="button" class="inline-flex flex-col items-start gap-0.5 px-3 py-1 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-emerald-500/40 transition cursor-pointer" id="czkRateBadge" onclick="fetchCzkRate(true)" title="Orientacyjny kurs CZK/PLN z buforem 0,5%. Nie jest to bezpośrednia oferta z konta Revolut. Kliknij, aby odświeżyć.">
+<span class="flex items-center gap-1.5 text-xs"><span>🇨🇿 1 CZK =</span><strong class="text-emerald-400 font-extrabold" id="czkRateValue">...</strong><span class="text-[10px] text-slate-400" id="czkInvValue"></span></span>
+<span class="text-[10px] text-amber-300 font-semibold" id="czkAmountValue">10 000 Kč ≈ ... zł</span>
+<span class="text-[9px] text-slate-400 font-normal" id="czkUpdatedAt">Oczekiwanie na kurs...</span>
+</button>
 </div>
-</div>
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 flex-wrap">
+<button class="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnUserFeedback" onclick="openFeedbackModal()" type="button">💡 Pomysł / Zgłoś problem</button>
+<button class="admin-only hidden items-center gap-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/40 font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnAdminFeedback" onclick="openFeedbackInbox()" type="button">📬 Wiadomości użytkowników <span class="hidden rounded-full bg-rose-500 text-white px-1.5 py-0.5 text-[10px]" id="feedbackCountBadge">0</span></button>
 <button class="hidden items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer" id="btnInstallApp" onclick="installApp()" type="button">📲 Zainstaluj aplikację</button>
 <button class="admin-only hidden items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer" id="btnFirebaseSetup" onclick="openFirebaseModal()">
 <span>🔥 Konfiguracja Firebase</span>
@@ -402,6 +404,27 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <button class="text-xs font-bold text-amber-600 hover:underline cursor-pointer" onclick="closeUserViewModal(); openAdminLoginModal();">🔐 Zaloguj jako Admin</button>
 <button class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer" onclick="closeUserViewModal()">Zamknij</button>
 </div>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-[60] hidden items-center justify-center p-4 overflow-y-auto" id="feedbackModal">
+<div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+<div><span class="text-xs font-bold uppercase tracking-wider text-sky-600">Fliku Calendar · kontakt</span><h3 class="text-lg font-extrabold text-slate-900">💡 Pomysł lub zgłoszenie problemu</h3></div>
+<button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeFeedbackModal()" type="button">×</button>
+</div>
+<form class="space-y-3" id="feedbackForm" onsubmit="submitFeedback(event)">
+<div><label class="block text-xs font-bold text-slate-700 mb-1.5" for="feedbackType">Czego dotyczy wiadomość?</label><select class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" id="feedbackType" required><option value="Pomysł">💡 Mam pomysł</option><option value="Problem">🐞 Zgłaszam problem</option><option value="Pytanie">❓ Mam pytanie</option><option value="Inne">📝 Inne</option></select></div>
+<div><label class="block text-xs font-bold text-slate-700 mb-1.5" for="feedbackMessage">Treść wiadomości</label><textarea class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm min-h-32" id="feedbackMessage" maxlength="2000" placeholder="Opisz pomysł albo problem… (maks. 2000 znaków)" required></textarea><div class="text-right text-[10px] text-slate-400 mt-1"><span id="feedbackCharCount">0</span>/2000</div></div>
+<div class="rounded-xl bg-sky-50 border border-sky-100 p-3 text-[11px] text-sky-900">Do wiadomości dołączymy datę, typ urządzenia (jeśli przeglądarka go udostępnia), system, przeglądarkę i rozdzielczość ekranu. Nie pobieramy lokalizacji GPS.</div>
+<div class="flex justify-end gap-2 pt-2"><button class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm" onclick="closeFeedbackModal()" type="button">Anuluj</button><button class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm" id="feedbackSubmitBtn" type="submit">Wyślij wiadomość</button></div>
+</form>
+</div>
+</div>
+<div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-[60] hidden items-center justify-center p-4 overflow-y-auto" id="feedbackInboxModal">
+<div class="bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8 max-h-[90vh] flex flex-col">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4 gap-3"><div><span class="text-xs font-bold uppercase tracking-wider text-sky-600">Panel administratora</span><h3 class="text-lg font-extrabold text-slate-900">📬 Wiadomości od użytkowników</h3><p class="text-xs text-slate-500 mt-1" id="feedbackInboxStatus">Ładowanie wiadomości…</p></div><div class="flex items-center gap-2"><button class="px-3 py-2 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold" onclick="loadFeedbackInbox()" type="button">↻ Odśwież</button><button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer text-xl leading-none" onclick="closeFeedbackInbox()" type="button">×</button></div></div>
+<div class="overflow-y-auto space-y-3 pr-1" id="feedbackInboxList"><div class="text-sm text-slate-500 text-center py-8">Ładowanie…</div></div>
+<div class="flex justify-end pt-4 mt-3 border-t border-slate-100"><button class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs" onclick="closeFeedbackInbox()" type="button">Zamknij</button></div>
 </div>
 </div>
 <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden items-center justify-center p-4" id="editModal">
@@ -690,28 +713,56 @@ const DOW_NAMES_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 async function fetchCzkRate(showNotification = false) {
     const valEl = document.getElementById('czkRateValue');
     const invEl = document.getElementById('czkInvValue');
+    const amountEl = document.getElementById('czkAmountValue');
+    const updatedEl = document.getElementById('czkUpdatedAt');
     if (!valEl) return;
+
+    const amountCzk = 10000;
+    const safetyBuffer = 0.005; // 0,5% ostrożności względem kursu referencyjnego
+    const numberPLN = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const numberRate = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
     try {
-        const res = await fetch('https://api.frankfurter.app/latest?from=CZK&to=PLN', { cache: 'no-store' });
-        if (!res.ok) throw new Error('Błąd API');
-        const data = await res.json();
-        const rate = data.rates.PLN;
-        const inv = 1 / rate;
-        valEl.textContent = `${rate.toFixed(4)} zł`;
-        if (invEl) invEl.textContent = `(1 zł = ${inv.toFixed(2)} Kč)`;
-        if (showNotification) showToast(`🇨🇿 Odświeżono kurs: 1 CZK = ${rate.toFixed(4)} PLN`);
-    } catch (err) {
+        let referenceRate = null;
+        let sourceLabel = 'kurs referencyjny';
+
+        // Frankfurter udostępnia kursy referencyjne oparte na danych banków centralnych.
         try {
-            const resNbp = await fetch('https://api.nbp.pl/api/exchangerates/rates/a/czk/?format=json');
+            const res = await fetch('https://api.frankfurter.app/latest?from=CZK&to=PLN', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Frankfurter API');
+            const data = await res.json();
+            referenceRate = Number(data?.rates?.PLN);
+            if (!Number.isFinite(referenceRate) || referenceRate <= 0) throw new Error('Nieprawidłowy kurs');
+        } catch (primaryError) {
+            // Awaryjnie pobieramy średni kurs NBP.
+            const resNbp = await fetch('https://api.nbp.pl/api/exchangerates/rates/a/czk/?format=json', { cache: 'no-store' });
+            if (!resNbp.ok) throw new Error('Frankfurter i NBP niedostępne');
             const dataNbp = await resNbp.json();
-            const rate = dataNbp.rates[0].mid;
-            const inv = 1 / rate;
-            valEl.textContent = `${rate.toFixed(4)} zł`;
-            if (invEl) invEl.textContent = `(1 zł = ${inv.toFixed(2)} Kč)`;
-            if (showNotification) showToast(`🇨🇿 Kurs NBP: 1 CZK = ${rate.toFixed(4)} PLN`);
-        } catch (e) {
-            valEl.textContent = 'Błąd';
+            referenceRate = Number(dataNbp?.rates?.[0]?.mid);
+            if (!Number.isFinite(referenceRate) || referenceRate <= 0) throw new Error('Nieprawidłowy kurs NBP');
+            sourceLabel = 'kurs NBP';
         }
+
+        // Bufor 0,5% sprawia, że wyświetlana kwota jest ostrożniejszym szacunkiem,
+        // a nie obietnicą dokładnej kwoty, którą pokaże aplikacja Revolut.
+        const estimatedRate = referenceRate * (1 - safetyBuffer);
+        const estimatedPLN = amountCzk * estimatedRate;
+        const inverse = 1 / estimatedRate;
+        const now = new Date();
+
+        valEl.textContent = `${numberRate.format(estimatedRate)} zł`;
+        if (invEl) invEl.textContent = `(1 zł ≈ ${numberRate.format(inverse)} Kč)`;
+        if (amountEl) amountEl.textContent = `10 000 Kč ≈ ${numberPLN.format(estimatedPLN)} zł`;
+        if (updatedEl) updatedEl.textContent = `Aktualizacja: ${now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · ${sourceLabel} · bufor 0,5%`;
+        const badge = document.getElementById('czkRateBadge');
+        if (badge) badge.title = `Szacunek na podstawie ${sourceLabel}, po odjęciu bufora 0,5%. Rzeczywisty kurs Revolut może się różnić. Kliknij, aby odświeżyć.`;
+
+        if (showNotification) showToast(`🇨🇿 Szacunek dla 10 000 CZK: ${numberPLN.format(estimatedPLN)} zł (bufor 0,5%)`);
+    } catch (err) {
+        if (updatedEl) updatedEl.textContent = 'Brak połączenia z serwerem kursów';
+        if (amountEl && amountEl.textContent.includes('...')) amountEl.textContent = '10 000 Kč ≈ — zł';
+        if (valEl.textContent === '...') valEl.textContent = 'Brak danych';
+        if (showNotification) showToast('Nie udało się pobrać kursu CZK/PLN. Spróbuj ponownie później.');
     }
 }
 
@@ -1000,6 +1051,143 @@ async function pushLocalStateToFirebase(silent = false) {
     }
 }
 
+// --- Opinie i zgłoszenia użytkowników (oddzielna gałąź Firebase) ---
+let feedbackInboxUnsubscribe = null;
+let feedbackInboxPoll = null;
+let lastFeedbackCount = 0;
+
+function escapeFeedbackHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function openFeedbackModal() {
+    const modal = document.getElementById('feedbackModal');
+    document.getElementById('feedbackForm').reset();
+    document.getElementById('feedbackCharCount').textContent = '0';
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+}
+function closeFeedbackModal() {
+    const modal = document.getElementById('feedbackModal');
+    modal.classList.add('hidden'); modal.classList.remove('flex');
+}
+function getFeedbackDeviceInfo() {
+    const ua = navigator.userAgent || '';
+    let device = 'Nieustalone urządzenie';
+    if (/Android/i.test(ua)) {
+        const model = ua.match(/Android[^;)]*;\s*([^;)]+)(?:\s+Build\/[^;)]+)?/i);
+        device = model && model[1] ? `Android · ${model[1].trim()}` : 'Telefon/tablet z Androidem';
+    } else if (/iPhone/i.test(ua)) device = 'Apple iPhone';
+    else if (/iPad/i.test(ua)) device = 'Apple iPad';
+    else if (/Windows/i.test(ua)) device = 'Komputer z Windows';
+    else if (/Macintosh|Mac OS/i.test(ua)) device = 'Komputer Apple';
+    else if (/Linux/i.test(ua)) device = 'Urządzenie z Linuxem';
+
+    let browser = 'Nieustalona przeglądarka';
+    if (/Edg\//i.test(ua)) browser = 'Microsoft Edge';
+    else if (/SamsungBrowser/i.test(ua)) browser = 'Samsung Internet';
+    else if (/Firefox\//i.test(ua)) browser = 'Mozilla Firefox';
+    else if (/OPR\//i.test(ua)) browser = 'Opera';
+    else if (/Chrome\//i.test(ua)) browser = 'Google Chrome';
+    else if (/Safari\//i.test(ua)) browser = 'Apple Safari';
+
+    return {
+        device,
+        platform: navigator.userAgentData?.platform || navigator.platform || 'Nieznany system',
+        browser,
+        userAgent: ua.slice(0, 350),
+        screen: `${window.screen?.width || '?'}×${window.screen?.height || '?'} @${window.devicePixelRatio || 1}x`,
+        language: navigator.language || 'Nieznany',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Nieznana'
+    };
+}
+async function submitFeedback(event) {
+    event.preventDefault();
+    const message = document.getElementById('feedbackMessage').value.trim();
+    const type = document.getElementById('feedbackType').value;
+    if (!message) { showToast('Wpisz treść wiadomości.'); return; }
+    if (message.length > 2000) { showToast('Wiadomość jest za długa.'); return; }
+    const btn = document.getElementById('feedbackSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Wysyłanie…';
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const payload = { type, message, createdAt: new Date().toISOString(), device: getFeedbackDeviceInfo(), status: 'new' };
+    try {
+        let saved = false;
+        if (activeDbMode === 'rtdb' && rtdb) {
+            await set(ref(rtdb, `fliku_calendar/feedback/${id}`), payload);
+            saved = true;
+        } else if (activeFirebaseConfig?.databaseURL) {
+            const base = activeFirebaseConfig.databaseURL.replace(/\/+$/, '');
+            const response = await fetch(`${base}/fliku_calendar/feedback/${id}.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (response.ok) saved = true;
+            else throw new Error(`Firebase HTTP ${response.status}`);
+        }
+        if (!saved) throw new Error('Brak połączenia z bazą danych');
+        closeFeedbackModal();
+        showToast('✅ Wiadomość została wysłana. Dziękujemy!');
+        if (isAdmin && !document.getElementById('feedbackInboxModal').classList.contains('hidden')) loadFeedbackInbox();
+    } catch (err) {
+        console.error('Feedback send error:', err);
+        showToast('❌ Nie udało się wysłać. Sprawdź połączenie z Firebase.');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Wyślij wiadomość';
+    }
+}
+async function loadFeedbackInbox() {
+    if (!isAdmin) return;
+    const list = document.getElementById('feedbackInboxList');
+    const status = document.getElementById('feedbackInboxStatus');
+    if (!list) return;
+    status.textContent = 'Pobieranie wiadomości…';
+    try {
+        let data = null;
+        if (activeDbMode === 'rtdb' && rtdb) {
+            const snapshot = await ref(rtdb, 'fliku_calendar/feedback').once('value');
+            data = snapshot.val();
+        } else if (activeFirebaseConfig?.databaseURL) {
+            const base = activeFirebaseConfig.databaseURL.replace(/\/+$/, '');
+            const response = await fetch(`${base}/fliku_calendar/feedback.json`, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Firebase HTTP ${response.status}`);
+            data = await response.json();
+        } else throw new Error('Brak konfiguracji Firebase');
+
+        const entries = Object.entries(data || {}).map(([id, item]) => ({ id, ...(item || {}) }))
+            .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+        lastFeedbackCount = entries.length;
+        const badge = document.getElementById('feedbackCountBadge');
+        if (badge) { badge.textContent = String(entries.length); badge.classList.toggle('hidden', entries.length === 0); }
+        status.textContent = `${entries.length} ${entries.length === 1 ? 'wiadomość' : entries.length < 5 ? 'wiadomości' : 'wiadomości'} · najnowsze na górze`;
+        if (!entries.length) { list.innerHTML = '<div class="text-sm text-slate-500 text-center py-10">Nie ma jeszcze żadnych wiadomości.</div>'; return; }
+        list.innerHTML = entries.map(item => {
+            const device = item.device || {};
+            const when = item.createdAt ? new Date(item.createdAt).toLocaleString('pl-PL') : 'Nieznana data';
+            const kindClass = item.type === 'Problem' ? 'bg-rose-100 text-rose-700' : item.type === 'Pomysł' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-700';
+            return `<article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2"><div class="flex items-center gap-2"><span class="text-[11px] font-extrabold px-2 py-1 rounded-full ${kindClass}">${escapeFeedbackHtml(item.type || 'Wiadomość')}</span><span class="text-[11px] text-slate-400">${escapeFeedbackHtml(when)}</span></div><span class="text-[10px] text-slate-400">${escapeFeedbackHtml(item.status === 'new' ? 'Nowa' : '')}</span></div>
+                <p class="text-sm text-slate-800 whitespace-pre-wrap break-words">${escapeFeedbackHtml(item.message || '')}</p>
+                <details class="mt-3 border-t border-slate-100 pt-2"><summary class="text-xs font-bold text-slate-500 cursor-pointer">📱 Informacje o urządzeniu</summary><div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-600"><div><b>Urządzenie:</b> ${escapeFeedbackHtml(device.device || 'Brak danych')}</div><div><b>System:</b> ${escapeFeedbackHtml(device.platform || 'Brak danych')}</div><div><b>Przeglądarka:</b> ${escapeFeedbackHtml(device.browser || 'Brak danych')}</div><div><b>Ekran:</b> ${escapeFeedbackHtml(device.screen || 'Brak danych')}</div><div><b>Język:</b> ${escapeFeedbackHtml(device.language || 'Brak danych')}</div><div><b>Strefa:</b> ${escapeFeedbackHtml(device.timezone || 'Brak danych')}</div></div></details>
+            </article>`;
+        }).join('');
+    } catch (err) {
+        console.error('Feedback inbox error:', err);
+        status.textContent = 'Nie udało się pobrać wiadomości.';
+        list.innerHTML = '<div class="rounded-xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700">Brak dostępu do wiadomości. Sprawdź połączenie i reguły Firebase Realtime Database.</div>';
+    }
+}
+function openFeedbackInbox() {
+    if (!isAdmin) { showToast('Ta funkcja jest dostępna tylko dla administratora.'); return; }
+    const modal = document.getElementById('feedbackInboxModal');
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    loadFeedbackInbox();
+    if (feedbackInboxPoll) clearInterval(feedbackInboxPoll);
+    feedbackInboxPoll = setInterval(() => { if (isAdmin && !modal.classList.contains('hidden')) loadFeedbackInbox(); }, 15000);
+}
+function closeFeedbackInbox() {
+    const modal = document.getElementById('feedbackInboxModal');
+    modal.classList.add('hidden'); modal.classList.remove('flex');
+    if (feedbackInboxPoll) { clearInterval(feedbackInboxPoll); feedbackInboxPoll = null; }
+}
+
 function parseFirebaseConfigInput(rawText) {
     if (!rawText || !rawText.trim()) return null;
     const regex = /["']?([a-zA-Z0-9_]+)["']?\s*:\s*["']([^"']+)["']/g;
@@ -1098,6 +1286,8 @@ function updateAccessLevelUI() {
     const roleBadge = document.getElementById('roleBadge');
     const btnLogin = document.getElementById('btnAdminLogin');
     const btnLogout = document.getElementById('btnAdminLogout');
+    const userFeedbackBtn = document.getElementById('btnUserFeedback');
+    const adminFeedbackBtn = document.getElementById('btnAdminFeedback');
     const hintText = document.getElementById('calendarHintText');
     const adminElements = document.querySelectorAll('.admin-only');
 
@@ -1106,6 +1296,8 @@ function updateAccessLevelUI() {
         roleBadge.innerHTML = '<span>👑 Tryb: ADMIN (Pełna edycja)</span>';
         btnLogin.classList.add('hidden');
         btnLogout.classList.remove('hidden');
+        if (userFeedbackBtn) userFeedbackBtn.classList.add('hidden');
+        if (adminFeedbackBtn) adminFeedbackBtn.classList.remove('hidden');
         if (hintText) hintText.innerHTML = '✏️ Jesteś w trybie <strong>ADMIN</strong>. Kliknij dowolny dzień, aby edytować.';
         adminElements.forEach(el => el.classList.remove('hidden'));
     } else {
@@ -1113,6 +1305,8 @@ function updateAccessLevelUI() {
         roleBadge.innerHTML = '<span>👁️ Tryb: USER (Tylko odczyt)</span>';
         btnLogin.classList.remove('hidden');
         btnLogout.classList.add('hidden');
+        if (userFeedbackBtn) userFeedbackBtn.classList.remove('hidden');
+        if (adminFeedbackBtn) adminFeedbackBtn.classList.add('hidden');
         if (hintText) hintText.innerHTML = '👁️ Jesteś w trybie <strong>USER (Tylko odczyt)</strong>. Kliknij dzień, aby zobaczyć szczegóły.';
         adminElements.forEach(el => el.classList.add('hidden'));
     }
@@ -2620,6 +2814,7 @@ function tutVoiceChanged() { if (tutPlaying) tutShow(tutIdx); }
 Object.assign(window, {
     toggleGrayOutPastDays, openAdminLoginModal, closeAdminLoginModal, submitAdminPin, logoutAdmin,
     handleLogoUpload, handleFirebaseBadgeClick, openFirebaseModal, closeFirebaseModal, saveFirebaseAndAdminConfig,
+    openFeedbackModal, closeFeedbackModal, submitFeedback, openFeedbackInbox, closeFeedbackInbox, loadFeedbackInbox,
     pushLocalStateToFirebase, closeUserViewModal, openEditModal, closeEditModal, onToggleYellowVacation,
     selectActualDriver, saveDayChanges, revertSubstitution, openDriversModal, closeDriversModal,
     updateDriverName, updateDriverColor, removeDriver, addNewDriver, autoAssignAllSchedule,
@@ -2630,6 +2825,11 @@ Object.assign(window, {
     tutAudioParamChanged, handleTutVideoUpload, resetTutCustomVideo, selectToJ, refreshToJSection, fetchCzkRate
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+    const feedbackText = document.getElementById('feedbackMessage');
+    if (feedbackText) feedbackText.addEventListener('input', () => { document.getElementById('feedbackCharCount').textContent = String(feedbackText.value.length); });
+});
+
 window.onload = function() {
     loadLocalBackup();
     formatCurrentDateLabel();
@@ -2638,7 +2838,7 @@ window.onload = function() {
     renderAll();
     initFirebaseConnection();
     fetchCzkRate();
-    setInterval(() => fetchCzkRate(false), 30 * 60 * 1000);
+    setInterval(() => fetchCzkRate(false), 5 * 60 * 1000);
 };
 </script>
 </body>
