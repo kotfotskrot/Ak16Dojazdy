@@ -208,7 +208,11 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <input accept="image/*" class="hidden" onchange="handleLogoUpload(event)" type="file"/>
 </label>
 </div>
-<button class="max-w-[7rem] sm:max-w-[8.5rem] text-center leading-tight bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-extrabold text-xs sm:text-sm px-3 py-3 rounded-xl shadow-lg cursor-pointer" onclick="openTutorial()" type="button">🎬 Video samouczek</button>
+<div class="flex flex-col gap-2 w-[7rem] sm:w-[8.5rem]">
+<button class="w-full text-center leading-tight bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-extrabold text-xs sm:text-sm px-3 py-3 rounded-xl shadow-lg cursor-pointer" onclick="openTutorial()" type="button">🎬 Video samouczek</button>
+<a class="block w-full text-center leading-tight bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs sm:text-sm px-3 py-3 rounded-xl shadow-lg cursor-pointer" href="https://identity.skoda.vwgroup.com/realms/standard/protocol/openid-connect/auth?client_id=sap-ecockpit-28d1d692&amp;redirect_uri=https%3A%2F%2Fsmartappspki.skoda.vwgroup.com%2Foauth%2Fclient%2Fredirect&amp;response_type=code&amp;scope=openid&amp;token_content_type=jwt&amp;state=5o11nX8IOsynQTwS0zDNXtA&amp;nonce=5jBZrg-AsAra66BSE9y8jDw&amp;code_challenge_method=S256&amp;code_challenge=HLsc-c2Nj-vw3YBuzcx0IgBdNkQOcNIvqS01RwyPAWY" rel="noopener noreferrer" target="_blank">📚 Fiszunie <span class="text-sm">💵</span></a>
+<a class="block w-full text-center leading-tight bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white font-extrabold text-xs sm:text-sm px-3 py-3 rounded-xl shadow-lg cursor-pointer" href="https://sa.gthcatering.cz/restaurant/k32/" rel="noopener noreferrer" target="_blank">🍽️ Co na obiad<span class="block text-sm leading-none mt-1 tracking-wide">🥔🍖🥗</span></a>
+</div>
 </div>
 <div>
 <div class="flex flex-wrap items-center gap-2.5">
