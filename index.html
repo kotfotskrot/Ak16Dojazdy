@@ -2763,9 +2763,29 @@ function updateFlikuTodayPosition(force=false){
     saveFlikuCalendarView();
     return true;
 }
+// Przewiń do bieżącego dnia także wewnątrz szerokiej tabeli (telefon).
+function flikuScrollToToday(){
+    const today=document.getElementById('flikuTodayDayHeader');
+    if(!today)return false;
+    const scroller=today.closest('.table-scroll');
+    if(scroller){
+        const left=today.offsetLeft-(scroller.clientWidth/2)+(today.offsetWidth/2);
+        scroller.scrollLeft=Math.max(0,left);
+    }
+    // Nie zmieniaj wybranej liczby miesięcy ani ustawień użytkownika.
+    const month=today.closest('.calendar-month');
+    if(month){
+        const top=month.getBoundingClientRect().top+window.scrollY-90;
+        window.scrollTo({top:Math.max(0,top),behavior:'auto'});
+    }
+    return true;
+}
+function flikuScheduleTodayScroll(){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>flikuScrollToToday()));
+}
 function goToFlikuToday(){
     if(updateFlikuTodayPosition(true)){
-        renderAll();showToast('📍 Wyświetlam bieżący miesiąc.');
+        renderAll();flikuScheduleTodayScroll();showToast('📍 Wyświetlam dzisiejszy dzień.');
     } else showToast('📅 Brak grafiku na bieżący miesiąc.');
 }
 let flikuLastDateKey='';
@@ -2993,6 +3013,7 @@ function renderCalendar() {
             else if (m.wknd&&m.wknd.includes(d)) th.classList.add('wknd');
             if (dayStatus==='past'&&grayOutPastDays) th.classList.add('past-header');
             else if (dayStatus==='today') th.classList.add('today-header');
+            if(dayStatus==='today') th.id='flikuTodayDayHeader';
             th.innerHTML = dayStatus==='today'
               ? `<div class="leading-none">${d}</div><div class="text-[8px] leading-none font-black uppercase mt-0.5">DZIŚ (${dowName})</div>`
               : `<div class="leading-none">${d}</div><div class="text-[9px] font-normal opacity-80 leading-none mt-0.5">${dowName}</div>`;
@@ -4275,6 +4296,7 @@ window.onload = function() {
     safe(renderLogo);
     safe(updateAccessLevelUI);
     safe(renderAll);
+    if(flikuFollowToday) safe(flikuScheduleTodayScroll);
     safe(initFirebaseConnection);
     safe(startTopWidgets);
     safe(refreshChristmasMode);
