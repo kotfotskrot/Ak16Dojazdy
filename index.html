@@ -3422,7 +3422,78 @@ function renderJanuszPanel() {
         h += `<div class="grid grid-cols-12 items-center gap-2 text-sm"><div class="col-span-5 sm:col-span-4"><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${d.color}">${d.name}${star}</span></div><div class="col-span-3 sm:col-span-2 text-center font-extrabold text-slate-800">${c.month}</div><div class="col-span-4 sm:col-span-6 flex items-center gap-2"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div style="height:100%;width:${Math.round(c.year / maxY * 100)}%;background:${d.color}"></div></div><span class="font-extrabold text-slate-800 w-6 text-right">${c.year}</span></div></div>`;
     });
     h += '</div>';
+    // Formularz jest widoczny wyłącznie dla administratora, także po ponownym renderze Firebase.
+    if(isAdmin){
+        const entries=[];
+        scheduleData.forEach((month,mIndex)=>{
+            const {year,monthIdx}=resolveMonthAndYear(month);
+            for(let day=1;day<=month.days;day++){
+                if((month.planned||{})[day]!==JANUSZ_CODE)continue;
+                const date=new Date(year,monthIdx,day);
+                entries.push({mIndex,day,dateKey:`${year}-${String(monthIdx+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,label:`${day} ${MONTH_META[monthIdx].pl} ${year}`,assigned:(month.toJ||{})[day]||''});
+            }
+        });
+        entries.sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
+        const recent=entries.filter(x=>x.dateKey<=flikuCurrentDateKey());
+        const upcoming=entries.filter(x=>x.dateKey>flikuCurrentDateKey()).reverse();
+        const available=[...recent,...upcoming.slice(0,20)];
+        const chosen=available.find(x=>x.dateKey===flikuJanuszSelectedDate)||recent[0]||upcoming[0];
+        if(chosen){
+            flikuJanuszSelectedDate=chosen.dateKey;
+            const opts=available.map(x=>`<option value="${x.dateKey}" ${x.dateKey===chosen.dateKey?'selected':''}>${x.label}${x.assigned?' • '+getDriverByCode(x.assigned).name:' • bez potwierdzenia'}</option>`).join('');
+            const selectedDriver=flikuJanuszSelectedDriver===null?chosen.assigned:flikuJanuszSelectedDriver;
+            const options=['',...cands.map(x=>x.code)].map(code=>{
+                const d=cands.find(x=>x.code===code);
+                return `<option value="${code}" ${code===selectedDriver?'selected':''}>${d?d.name+' ('+code+')':'— wybierz kierowcę —'}</option>`;
+            }).join('');
+            h+=`<section class="mt-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3" aria-label="Potwierdzanie przejazdu do Janusza">
+              <h3 class="font-extrabold text-emerald-950 mb-1">👑 Potwierdź, kto jechał do ${jGen()}</h3>
+              <p class="text-xs text-emerald-900 mb-2">Wybierz datę, kierowcę i zatwierdź. Można też poprawić wcześniejszy wpis.</p>
+              <label class="block text-xs font-bold mb-2">Data przejazdu
+                <select id="flikuJanuszDate" onchange="flikuChangeJanuszDate(this.value)" class="mt-1 w-full border rounded-lg p-2 bg-white text-slate-900">${opts}</select>
+              </label>
+              <label class="block text-xs font-bold mb-3">Kto faktycznie jechał?
+                <select id="flikuJanuszDriver" onchange="flikuChangeJanuszDriver(this.value)" class="mt-1 w-full border rounded-lg p-2 bg-white text-slate-900">${options}</select>
+              </label>
+              <button type="button" onclick="flikuConfirmJanuszRide()" class="w-full rounded-lg bg-emerald-700 text-white font-extrabold p-2.5">✅ Potwierdź przejazd</button>
+              ${chosen.assigned?`<p class="mt-2 text-xs font-semibold text-emerald-900">Zapisany kierowca: ${getDriverByCode(chosen.assigned).name}</p>`:'<p class="mt-2 text-xs text-amber-800">Brak dotychczasowego potwierdzenia.</p>'}
+            </section>`;
+        } else {
+            h+='<p class="mt-3 text-xs text-amber-800">Nie ma jeszcze dni z zaplanowanym przejazdem Janusza.</p>';
+        }
+    }
     body.innerHTML = h;
+}
+
+// Lokalny wybór formularza; zatwierdzenie zapisuje się w grafiku i synchronizuje z Firebase.
+let flikuJanuszSelectedDate='';
+let flikuJanuszSelectedDriver=null;
+function flikuChangeJanuszDate(dateKey){
+    flikuJanuszSelectedDate=dateKey;
+    flikuJanuszSelectedDriver=null;
+    renderJanuszPanel();
+}
+function flikuChangeJanuszDriver(code){ flikuJanuszSelectedDriver=code; }
+function flikuConfirmJanuszRide(){
+    if(!isAdmin){showToast('⚠️ Tylko administrator może potwierdzać przejazdy.');return;}
+    const dateKey=(document.getElementById('flikuJanuszDate')||{}).value||'';
+    const code=(document.getElementById('flikuJanuszDriver')||{}).value||'';
+    const valid=driversList.some(d=>d.code===code&&d.code!==JANUSZ_CODE);
+    if(!valid){showToast('⚠️ Najpierw wybierz kierowcę.');return;}
+    const found=scheduleData.find(m=>{
+        const {year,monthIdx}=resolveMonthAndYear(m);
+        return dateKey.startsWith(`${year}-${String(monthIdx+1).padStart(2,'0')}-`);
+    });
+    const day=Number(dateKey.slice(-2));
+    if(!found||!Number.isInteger(day)||day<1||day>found.days||(found.planned||{})[day]!==JANUSZ_CODE){
+        showToast('⚠️ Nie znaleziono przejazdu Janusza w tym dniu.');return;
+    }
+    found.toJ ||= {};
+    found.toJ[day]=code;
+    flikuJanuszSelectedDate=dateKey;
+    flikuJanuszSelectedDriver=null;
+    saveState();
+    showToast('✅ Potwierdzono przejazd do Janusza: '+getDriverByCode(code).name);
 }
 
 function refreshToJSection() {
@@ -4534,7 +4605,7 @@ Object.assign(window, {
     openScheduleGenModal, closeScheduleGenModal, switchSchedTab, previewSchedulePhoto, setCreatorBrush,
     updateMonthPreviewGrid, saveCreatedMonthToSchedule, generateFullYearSchedule, removeMonthAtIndex,
     exportJsonFile, importJsonFile, openResetConfirmModal, closeResetConfirmModal, confirmResetAll,
-    copySummaryToClipboard, downloadHtmlFile, selectToJ, refreshToJSection, fetchCzkRate,
+    copySummaryToClipboard, downloadHtmlFile, selectToJ, refreshToJSection, flikuChangeJanuszDate, flikuChangeJanuszDriver, flikuConfirmJanuszRide, fetchCzkRate,
     fetchFuelMax, setWidgetEnabled, deleteAllFeedback, changeCalendarYear, changeStatsMonth, changeLocalTheme,changeGlobalTheme,setTileEnabled,publish2027ToFirebase, goToFlikuToday, updateChristmasAdminSetting, toggleChristmasPreview, toggleChristmasMusic, toggleChristmasMute, stopFlikuChristmasSound, flikuUploadMp3Files, flikuSelectMp3, flikuAddMp3Url, flikuRemoveSelectedMp3, flikuSetMusicVolume, changeCalendarViewCount, changeCalendarLayout, changeCalendarStartMonth, shiftCalendarPage, openFlikuSchedulePhoto, closeFlikuSchedulePhoto, setFlikuPhotoZoom, resetFlikuPhotoZoom
 });
 
