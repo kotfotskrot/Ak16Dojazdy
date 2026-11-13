@@ -1654,13 +1654,15 @@ function flikuReadPersonalSettings(){
         return {tiles:(x.tiles&&typeof x.tiles==='object'&&!Array.isArray(x.tiles))?x.tiles:{},
             density:x.density==='compact'?'compact':'normal',textSize:x.textSize==='large'?'large':'normal',hideSnow:x.hideSnow===true,
             font:['inter','system','rounded','arial','verdana','georgia','mono'].includes(x.font)?x.font:'inter',
+            showHalfYearPhotos:x.showHalfYearPhotos!==false,annotateHalfYearPhotos:x.annotateHalfYearPhotos!==false,
             reminders:flikuSanitizeReminderSettings(x.reminders)};
     }catch(e){return {tiles:{},density:'normal',textSize:'normal',hideSnow:false,font:'inter',showHalfYearPhotos:true,annotateHalfYearPhotos:true,reminders:flikuSanitizeReminderSettings(null)};}
 }
 let flikuPersonalSettings=flikuReadPersonalSettings();
 function flikuSavePersonalSettings(){
-    try{localStorage.setItem(FLIKU_PERSONAL_SETTINGS_KEY,JSON.stringify(flikuPersonalSettings));}catch(e){}
-    const status=document.getElementById('flikuPersonalSavedStatus');if(status)status.textContent='✓ Zapisano tylko na tym urządzeniu';
+    let saved=true;
+    try{localStorage.setItem(FLIKU_PERSONAL_SETTINGS_KEY,JSON.stringify(flikuPersonalSettings));}catch(e){saved=false;console.warn('Nie udało się zapisać ustawień',e);}
+    const status=document.getElementById('flikuPersonalSavedStatus');if(status)status.textContent=saved?'✓ Zapisano tylko na tym urządzeniu':'⚠️ Przeglądarka zablokowała zapis ustawień';
 }
 function flikuApplyPersonalAppearance(){
     document.body.dataset.flikuDensity=flikuPersonalSettings.density;
@@ -1879,6 +1881,7 @@ function changeCalendarYear(value){
     const y=parseInt(value,10);if(!Number.isInteger(y))return;
     flikuFollowToday=false;saveFlikuCalendarView();
     calendarViewYear=y;
+    saveFlikuCalendarView();
     const now=new Date();
     const matches=scheduleData.filter(m=>resolveMonthAndYear(m).year===y)
         .sort((a,b)=>resolveMonthAndYear(a).monthIdx-resolveMonthAndYear(b).monthIdx);
@@ -1942,6 +1945,12 @@ let calendarViewYear = 2027;
 let statsMonthKey = '2027-01';
 
 let isAdmin = false;
+const FLIKU_ADMIN_SESSION_KEY='fliku_admin_session_v105';
+function flikuRestoreAdminSession(){
+    try { isAdmin=sessionStorage.getItem(FLIKU_ADMIN_SESSION_KEY)==='1'; }
+    catch(e){isAdmin=false;}
+}
+
 let grayOutPastDays = true;
 
 let activeModalCell = { mIndex: null, day: null, selectedActual: '', toJ: '' };
@@ -2589,6 +2598,7 @@ function submitAdminPin(e) {
     const val = document.getElementById('adminPinInput').value.trim();
     if (val === adminPin) {
         isAdmin = true;
+        try{sessionStorage.setItem(FLIKU_ADMIN_SESSION_KEY,'1');}catch(e){}
         closeAdminLoginModal();
         updateAccessLevelUI();
         showToast('👑 Zalogowano jako Administrator!');
@@ -2598,6 +2608,7 @@ function submitAdminPin(e) {
 }
 function logoutAdmin() {
     isAdmin = false;
+    try{sessionStorage.removeItem(FLIKU_ADMIN_SESSION_KEY);}catch(e){}
     updateAccessLevelUI();
     showToast('👁️ Wylogowano z trybu Admin.');
 }
@@ -2663,17 +2674,18 @@ function readFlikuCalendarView(){
       return {count:[1,2,3,6,12].includes(Number(v.count))?Number(v.count):3,
         layout:['auto','vertical','horizontal'].includes(v.layout)?v.layout:'auto',
         starts:(v.starts&&typeof v.starts==='object'&&!Array.isArray(v.starts))?v.starts:{},
-        followToday:v.followToday!==false};
-    }catch(e){return {count:3,layout:'auto',starts:{},followToday:true};}
+        followToday:v.followToday!==false,year:Number.isInteger(Number(v.year))&&Number(v.year)>=2026&&Number(v.year)<=2100?Number(v.year):2027};
+    }catch(e){return {count:3,layout:'auto',starts:{},followToday:true,year:2027};}
 }
 const flikuSavedCalendarView=readFlikuCalendarView();
+calendarViewYear=flikuSavedCalendarView.year;
 let calendarViewCount=flikuSavedCalendarView.count;
 let calendarViewLayout=flikuSavedCalendarView.layout;
 let calendarStartByYear=flikuSavedCalendarView.starts;
 let flikuFollowToday=flikuSavedCalendarView.followToday;
 function saveFlikuCalendarView(){
     try{localStorage.setItem('fliku_calendar_view_v2',JSON.stringify({
-      count:calendarViewCount,layout:calendarViewLayout,starts:calendarStartByYear,followToday:flikuFollowToday}));}catch(e){}
+      count:calendarViewCount,layout:calendarViewLayout,starts:calendarStartByYear,followToday:flikuFollowToday,year:calendarViewYear}));}catch(e){}
 }
 function updateCalendarViewBar(months,start,maxStart,shown){
     const countEl=document.getElementById('calendarViewCount');if(countEl)countEl.value=String(calendarViewCount);
@@ -4243,6 +4255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = function() {
     // Każdy krok w osobnym try/catch: błąd w jednym (np. rysowaniu kalendarza) nie może zablokować pozostałych.
     const safe = (fn) => { try { const r = fn(); if (r && typeof r.catch === 'function') r.catch(e => console.error('Start:', e)); } catch (e) { console.error('Start:', e); } };
+    safe(flikuRestoreAdminSession);
     safe(loadLocalBackup);
     safe(ensure2027Schedule);
     safe(updateFlikuTodayPosition);
