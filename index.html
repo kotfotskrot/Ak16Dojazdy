@@ -870,7 +870,7 @@ body[data-theme="graphite"] .shift-cell.past-day{opacity:.75}
         <p class="fliku-prefs-hint">Wyłącz to, czego nie używasz. Funkcji wyłączonej globalnie przez administratora nie można samodzielnie włączyć.</p>
         <div id="flikuPersonalTileList" class="fliku-prefs-tiles"></div>
       </div>
-      <div class="fliku-prefs-group">
+      <div class="fliku-prefs-group" id="flikuUserChristmasPreferences" style="display:none" aria-hidden="true">
         <h3>🎄 Święta na moim telefonie</h3>
         <label class="fliku-prefs-toggle"><span>❄️ Pokazuj śnieg, gdy admin włączy motyw</span><input id="flikuPersonalSnow" type="checkbox" onchange="flikuSetPersonalSnow(this.checked)"></label>
         <label class="fliku-prefs-toggle"><span>🔊 Pozwól odtwarzać świąteczną muzykę</span><input id="flikuPersonalMusic" type="checkbox" onchange="flikuSetPersonalMusic(this.checked)"></label>
@@ -929,6 +929,8 @@ body[data-theme="graphite"] .shift-cell.past-day{opacity:.75}
  <label class="fliku-xmas-setting"><span>🎄 Włącz motyw świąteczny automatycznie w grudniu</span><input id="adminChristmasEnabled" type="checkbox" onchange="updateChristmasAdminSetting('enabled',this.checked)"></label>
  <label class="fliku-xmas-setting"><span>❄️ Animacja padającego śniegu</span><input id="adminChristmasSnow" type="checkbox" onchange="updateChristmasAdminSetting('snow',this.checked)"></label>
  <label class="fliku-xmas-setting"><span>🎵 Muzyka domyślnie <strong id="adminChristmasMusicLabel">WYŁĄCZONA</strong></span><input id="adminChristmasMusic" type="checkbox" onchange="updateChristmasAdminSetting('musicEnabled',this.checked)"></label>
+ <label class="fliku-xmas-setting"><span>🎁 Pokaż użytkownikom świąteczne opcje w „Moim panelu” (od grudnia)</span><input id="adminChristmasUserOptionsVisible" type="checkbox" onchange="updateChristmasAdminSetting('showUserOptions',this.checked)"></label>
+ <p class="fliku-xmas-info">Opcje śniegu i muzyki u zwykłych użytkowników są zawsze ukryte przed grudniem. W grudniu możesz je odsłonić lub nadal trzymać w tajemnicy. Twoje ustawienia administratora pozostają dostępne.</p>
  <label class="fliku-xmas-setting"><span>🎶 Utwór świąteczny</span><select id="adminChristmasTrack" onchange="updateChristmasAdminSetting('track',this.value)"><option value="jingle">Jingle Bells – melodia w aplikacji</option><option value="mariah">Mariah Carey – oficjalny odtwarzacz YouTube</option><option value="mp3">🎧 Własne pliki MP3</option></select></label>
  <div class="fliku-mp3-admin" id="flikuMp3Admin">
    <div class="fliku-mp3-title">🎧 Moje piosenki MP3</div>
@@ -1774,7 +1776,7 @@ function flikuApplyPersonalAppearance(){
     flikuApplyPersonalFont();
 }
 const DEFAULT_TILE_SETTINGS = { debts:true, stats:true, calendar:true, history:true, janusz:true, fuel:true, czk:true, fiszki:true, food:true, games:true, feedback:true };
-let uiSettings = { defaultTheme:'esmeny', tiles:{...DEFAULT_TILE_SETTINGS}, yearStartDrivers:{'2027':'K'}, rotationDays:2, christmas:{enabled:true,snow:true,musicEnabled:false,track:'jingle',mp3Tracks:[],mp3SelectedId:''} };
+let uiSettings = { defaultTheme:'esmeny', tiles:{...DEFAULT_TILE_SETTINGS}, yearStartDrivers:{'2027':'K'}, rotationDays:2, christmas:{enabled:true,snow:true,musicEnabled:false,showUserOptions:true,track:'jingle',mp3Tracks:[],mp3SelectedId:''} };
 const FLIKU_LOCAL_THEMES=['shared','esmeny','skoda-night','classic','ocean','plum','sunset','graphite','rose','sand'];
 let localThemeChoice = localStorage.getItem('fliku_theme_local_v1') || 'shared';
 
@@ -1794,6 +1796,7 @@ function mergeUiSettings(stored) {
             enabled: stored.christmas?.enabled !== false,
             snow: stored.christmas?.snow !== false,
             musicEnabled: stored.christmas?.musicEnabled === true,
+            showUserOptions: stored.christmas?.showUserOptions !== false,
             track: ['mariah','mp3','jingle'].includes(stored.christmas?.track) ? stored.christmas.track : 'jingle',
             mp3Tracks: Array.isArray(stored.christmas?.mp3Tracks) ? stored.christmas.mp3Tracks.slice(0,30).filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string'&&typeof x.url==='string'&&/^https:\/\//i.test(x.url)).map(x=>({id:x.id.slice(0,90),name:x.name.slice(0,150),url:x.url})) : [],
             mp3SelectedId: typeof stored.christmas?.mp3SelectedId==='string' ? stored.christmas.mp3SelectedId.slice(0,90) : ''
@@ -1855,7 +1858,18 @@ function setTileEnabled(key,on) {
 }
 
 // Ustawienia użytkownika: bez zapisu do chmury; wyłącznie lokalna prezentacja.
+function flikuUpdateChristmasPreferencesVisibility(){
+    const panel=document.getElementById('flikuUserChristmasPreferences');
+    if(!panel)return;
+    const december=new Date().getMonth()===11;
+    const christmas=uiSettings.christmas||{};
+    // Administrator always sees the controls for testing; users only after unveiling in December.
+    const visible=!!isAdmin||(december&&christmas.showUserOptions!==false);
+    panel.style.display=visible?'':'none';
+    panel.setAttribute('aria-hidden',visible?'false':'true');
+}
 function flikuSyncUserPrefsPanel(){
+    flikuUpdateChristmasPreferencesVisibility();
     const values={flikuPersonalTheme:typeof localThemeChoice!=='undefined'?localThemeChoice:'shared',
         flikuPersonalTextSize:flikuPersonalSettings.textSize,flikuPersonalDensity:flikuPersonalSettings.density,
         flikuPersonalFont:flikuPersonalSettings.font||'inter',
@@ -2187,6 +2201,9 @@ function applyIncomingCloudData(data) {
         renderAll();
         applyWidgetVisibility();
         applyTiles();
+        // Firebase odtwarza DOM kalendarza po pierwszym przewinięciu.
+        // Ponownie ustaw dzień tylko podczas rozruchu, zanim użytkownik zacznie nawigować.
+        if (flikuStartupTodayScrollActive) flikuScheduleTodayScroll();
         if (widgetSettings.fuel && !prevWidgets.fuel) fetchFuelMax(false);
         if (widgetSettings.czk && !prevWidgets.czk) fetchCzkRate(false);
     } finally {
@@ -2936,8 +2953,18 @@ function flikuScrollToToday(){
     }
     return true;
 }
+// Kontroluj automatyczne przewijanie podczas startu, nie nadpisuj ręcznej nawigacji.
+let flikuStartupTodayScrollActive=false;
+let flikuStartupScrollSerial=0;
+function flikuStopStartupTodayScroll(){
+    flikuStartupTodayScrollActive=false;
+    ++flikuStartupScrollSerial;
+}
 function flikuScheduleTodayScroll(){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>flikuScrollToToday()));
+    const serial=flikuStartupScrollSerial;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(serial===flikuStartupScrollSerial)flikuScrollToToday();
+    }));
 }
 function goToFlikuToday(){
     if(updateFlikuTodayPosition(true)){
@@ -3119,6 +3146,11 @@ function renderLegend() {
 function renderCalendar() {
     const container = document.getElementById('calendarContainer');
     if (!container) return;
+    // Przy aktualizacji danych zachowaj widoczny dzień (Firebase przebudowuje tabelę).
+    const previousToday=container.querySelector('#flikuTodayDayHeader');
+    const previousRect=previousToday?.getBoundingClientRect();
+    const keepTodayAnchor=!!previousRect && previousRect.bottom>0 && previousRect.top<window.innerHeight;
+    const previousTodayTop=previousRect?.top || 0;
     container.innerHTML = '';
     updateYearMonthSelectors();
     const photoOverview=document.getElementById('skodaPhotoOverview');
@@ -3286,6 +3318,13 @@ function renderCalendar() {
         }
         container.appendChild(block);
     });
+    if (keepTodayAnchor && !flikuStartupTodayScrollActive) {
+        const newToday=container.querySelector('#flikuTodayDayHeader');
+        if (newToday) {
+            const delta=newToday.getBoundingClientRect().top-previousTodayTop;
+            if (Math.abs(delta)>1) window.scrollBy(0,delta);
+        }
+    }
 }
 
 function handleDayCellClick(mIndex, day) {
@@ -4283,7 +4322,7 @@ function flikuPlayCustomMp3(){
 
 const FLIKU_MARIAH_VIDEO='yXQViqx6GMY';
 function flikuChristmasOptions(){
-    return uiSettings.christmas || (uiSettings.christmas={enabled:true,snow:true,musicEnabled:false,track:'jingle',mp3Tracks:[],mp3SelectedId:''});
+    return uiSettings.christmas || (uiSettings.christmas={enabled:true,snow:true,musicEnabled:false,showUserOptions:true,track:'jingle',mp3Tracks:[],mp3SelectedId:''});
 }
 function initFlikuSnow(){
     const snow=document.getElementById('flikuChristmasSnow');if(!snow||snow.childElementCount)return;
@@ -4306,6 +4345,7 @@ function updateChristmasAdminControls(){
     for(const [key,id] of Object.entries(ids)){
         const el=document.getElementById(id);if(el)el.checked=!!opts[key];
     }
+    const userOptions=document.getElementById('adminChristmasUserOptionsVisible');if(userOptions)userOptions.checked=opts.showUserOptions!==false;
     const track=document.getElementById('adminChristmasTrack');if(track)track.value=flikuEffectiveTrack();
     flikuRenderMp3AdminUI();
     const label=document.getElementById('adminChristmasMusicLabel');
@@ -4322,7 +4362,7 @@ function updateChristmasAdminSetting(key,value){
         if(value==='mp3'&&!flikuCurrentMp3()){flikuMp3Status('Najpierw dodaj lub wybierz MP3.');updateChristmasAdminControls();return;}
         opts.track=value;
         stopFlikuChristmasSound();
-    }else if(['enabled','snow','musicEnabled'].includes(key)){
+    }else if(['enabled','snow','musicEnabled','showUserOptions'].includes(key)){
         opts[key]=!!value;
         if(key==='musicEnabled'&&!value)stopFlikuChristmasSound();
     }else return;
@@ -4337,6 +4377,7 @@ function toggleChristmasPreview(){
 }
 function refreshChristmasMode(){
     if(!document.body)return;
+    flikuUpdateChristmasPreferencesVisibility();
     const opts=flikuChristmasOptions();
     const december=new Date().getMonth()===11;
     const active=opts.enabled && (december || (isAdmin && flikuChristmasPreview));
@@ -4505,6 +4546,10 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = function() {
     // Każdy krok w osobnym try/catch: błąd w jednym (np. rysowaniu kalendarza) nie może zablokować pozostałych.
     const safe = (fn) => { try { const r = fn(); if (r && typeof r.catch === 'function') r.catch(e => console.error('Start:', e)); } catch (e) { console.error('Start:', e); } };
+    flikuStartupTodayScrollActive=true;
+    // Jeśli ktoś zacznie ręcznie obsługiwać kalendarz, nie cofaj widoku.
+    ['pointerdown','touchstart','wheel','keydown'].forEach(type=>
+        window.addEventListener(type,flikuStopStartupTodayScroll,{once:true,passive:true}));
     safe(flikuRestoreAdminSession);
     safe(loadLocalBackup);
     safe(ensure2027Schedule);
