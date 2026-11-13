@@ -1890,11 +1890,11 @@ function changeCalendarYear(value){
     if(!Object.prototype.hasOwnProperty.call(calendarStartByYear,String(y)))
         calendarStartByYear[String(y)]=Math.max(0,currentIndex);
     const match=matches[Math.max(0,currentIndex)]||matches[0];
-    if(match)statsMonthKey=parseYearMonth(match);
+    if(match){statsMonthKey=parseYearMonth(match);flikuSaveStatsMonth();}
     renderAll();
 }
 function changeStatsMonth(value){
-    if(scheduleData.some(m=>parseYearMonth(m)===value)){statsMonthKey=value;renderDebtsAndStats();}
+    if(scheduleData.some(m=>parseYearMonth(m)===value)){statsMonthKey=value;flikuSaveStatsMonth();renderDebtsAndStats();}
 }
 function getVacationDrivers(m,day){return (m.vacations&&Array.isArray(m.vacations[day]))?m.vacations[day]:[];}
 function isDrivingDay(m,day){return ['R','O','N'].includes(m.shifts[day]) && !(m.yel||[]).includes(day) && !(m.slash||[]).includes(day);}
@@ -1942,7 +1942,15 @@ async function publish2027ToFirebase(){
 }
 
 let calendarViewYear = 2027;
-let statsMonthKey = '2027-01';
+const FLIKU_STATS_MONTH_KEY='fliku_stats_month_v106';
+function flikuReadStatsMonth(){
+    try {const value=localStorage.getItem(FLIKU_STATS_MONTH_KEY);return /^20\d{2}-(0[1-9]|1[0-2])$/.test(value||'')?value:'2027-01';}
+    catch(e){return '2027-01';}
+}
+function flikuSaveStatsMonth(){
+    try{localStorage.setItem(FLIKU_STATS_MONTH_KEY,statsMonthKey);}catch(e){console.warn('Nie można zapisać miesiąca statystyk',e);}
+}
+let statsMonthKey = flikuReadStatsMonth();
 
 let isAdmin = false;
 const FLIKU_ADMIN_SESSION_KEY='fliku_admin_session_v105';
@@ -2750,6 +2758,7 @@ function updateFlikuTodayPosition(force=false){
     // "Dzisiaj" ma zawsze pokazywać bieżący miesiąc jako pierwszy.
     calendarStartByYear[String(y)]=exact;
     statsMonthKey=parseYearMonth(available[exact]);
+    flikuSaveStatsMonth();
     flikuFollowToday=true;
     saveFlikuCalendarView();
     return true;
