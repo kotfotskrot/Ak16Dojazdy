@@ -2,7 +2,7 @@
 <html lang="pl"><head>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
-<!-- Fliku v10: poprawiony wybór miesiąca, diagnostyka przypomnień i obsługa zgody na powiadomienia. Bez samouczków. -->
+<!-- Fliku v11.4: poprawka Janusz admin i przewijania edycji. Poprzednia baza Fliku v10: poprawiony wybór miesiąca, diagnostyka przypomnień i obsługa zgody na powiadomienia. Bez samouczków. -->
 <title>Fliku Calendar - Rozpis Dojazdów</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f172a">
@@ -546,7 +546,21 @@ body[data-theme="graphite"] .bg-white,body[data-theme="graphite"] .bg-slate-50{b
 body[data-theme="graphite"] .text-slate-900,body[data-theme="graphite"] .text-slate-800,body[data-theme="graphite"] .text-slate-700,body[data-theme="graphite"] .text-slate-600{color:var(--fl-ink)!important}
 body[data-theme="graphite"] .text-slate-500{color:var(--fl-sub)!important}
 body[data-theme="graphite"] .shift-cell.past-day{opacity:.75}
-</style></head>
+</style>
+<style id="fliku-janusz-v114-fixes">
+/* v11.4: admin modal does not overflow phone view; actions stay reachable. */
+#editModal {align-items:flex-start!important;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;padding:12px!important;}
+#editModal > div {width:100%;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:auto!important;min-width:0;}
+#editModal > div > .flex.items-center.justify-end {position:sticky;bottom:-1px;z-index:3;background:#fff;padding:12px 0 max(8px, env(safe-area-inset-bottom));margin-top:16px;box-shadow:0 -5px 12px rgba(255,255,255,.9);}
+#toJSection {scroll-margin-top:16px;}
+#toJBtns button {touch-action:manipulation;}
+.fliku-janusz-confirm {min-width:0;overflow:visible;}
+.fliku-janusz-confirm select {display:block;width:100%;min-width:0;max-width:100%;font-size:16px;line-height:1.4;min-height:46px;}
+.fliku-janusz-confirm button {touch-action:manipulation;}
+.fliku-janusz-confirm button:disabled {opacity:.65;cursor:wait;}
+@media(max-width:440px){#editModal > div{padding:14px!important;}#januszSection{min-width:0!important;}#januszPanelBody{min-width:0!important;}}
+</style>
+</head>
 <body class="p-3 sm:p-6 max-w-7xl mx-auto">
 <div class="fixed bottom-5 right-5 z-50 bg-slate-900 text-amber-300 border border-amber-500/40 px-4 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2 transition-all hidden" id="toast">
 <span id="toastMsg">👑 Zalogowano jako Administrator!</span>
@@ -1022,6 +1036,7 @@ body[data-theme="graphite"] .shift-cell.past-day{opacity:.75}
 <label class="block text-xs font-bold uppercase text-slate-700 mb-1">🚙 Kto jechał do Janusza:</label>
 <div class="text-[11px] text-slate-500 mb-2" id="toJHint"></div>
 <div class="grid grid-cols-2 gap-2" id="toJBtns"></div>
+<p class="text-[11px] text-slate-500 mt-2">Potwierdzenie zapisuje tylko osobę, która jechała do Janusza. Pozostałe zmiany dnia zapisuj przyciskiem „Zapisz”.</p>
 </div>
 <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
 <div>
@@ -2756,6 +2771,8 @@ function updateAccessLevelUI() {
     if(!isAdmin)flikuChristmasPreview=false;
     refreshChristmasMode();
     renderHistory();
+    // Po zmianie roli przebuduj panel: formularz zatwierdzania jest admin-only.
+    renderJanuszPanel();
 }
 
 function openAdminLoginModal() {
@@ -3410,18 +3427,6 @@ function renderJanuszPanel() {
     if (!cands.length) { body.innerHTML = '<div class="text-sm text-slate-500">Brak kierowców do zliczenia.</div>'; return; }
     const maxY = Math.max(1, ...cands.map(d => st[d.code].year));
     let h = '';
-    if (suggested) {
-        h += `<div class="bg-amber-50 border-l-4 border-amber-500 rounded-xl p-3 mb-3 flex items-center gap-2 flex-wrap"><span class="text-xl">👉</span><span class="text-sm text-slate-800">Sugerowany kierowca do ${jGen()}:</span><span class="px-2.5 py-1 rounded text-white font-extrabold text-sm" style="background-color:${suggested.color}">${suggested.name}</span><span class="text-xs text-slate-600">(miesiąc: ${st[suggested.code].month}, rok: ${st[suggested.code].year})</span></div>`;
-    }
-    if (next) h += `<div class="text-xs text-slate-600 mb-2">📅 Najbliższy dzień ${jGen()} bez wpisu: <strong>${next.d} ${MONTH_META[next.monthIdx].pl} ${next.year}</strong></div>`;
-    if (missing > 0) h += `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-3">⚠️ Minione dni ${jGen()} bez wybranego kierowcy: <strong>${missing}</strong> (nie wliczone do statystyk)</div>`;
-    h += `<div class="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5"><div class="col-span-5 sm:col-span-4">Kierowca</div><div class="col-span-3 sm:col-span-2 text-center">Miesiąc</div><div class="col-span-4 sm:col-span-6">Rok ${curY}</div></div><div class="space-y-2">`;
-    cands.forEach(d => {
-        const c = st[d.code];
-        const star = suggested && suggested.code === d.code ? ' ⭐' : '';
-        h += `<div class="grid grid-cols-12 items-center gap-2 text-sm"><div class="col-span-5 sm:col-span-4"><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${d.color}">${d.name}${star}</span></div><div class="col-span-3 sm:col-span-2 text-center font-extrabold text-slate-800">${c.month}</div><div class="col-span-4 sm:col-span-6 flex items-center gap-2"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div style="height:100%;width:${Math.round(c.year / maxY * 100)}%;background:${d.color}"></div></div><span class="font-extrabold text-slate-800 w-6 text-right">${c.year}</span></div></div>`;
-    });
-    h += '</div>';
     // Formularz jest widoczny wyłącznie dla administratora, także po ponownym renderze Firebase.
     if(isAdmin){
         const entries=[];
@@ -3436,7 +3441,7 @@ function renderJanuszPanel() {
         entries.sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
         const recent=entries.filter(x=>x.dateKey<=flikuCurrentDateKey());
         const upcoming=entries.filter(x=>x.dateKey>flikuCurrentDateKey()).reverse();
-        const available=[...recent,...upcoming.slice(0,20)];
+        const available=[...recent,...upcoming];
         const chosen=available.find(x=>x.dateKey===flikuJanuszSelectedDate)||recent[0]||upcoming[0];
         if(chosen){
             flikuJanuszSelectedDate=chosen.dateKey;
@@ -3446,22 +3451,34 @@ function renderJanuszPanel() {
                 const d=cands.find(x=>x.code===code);
                 return `<option value="${code}" ${code===selectedDriver?'selected':''}>${d?d.name+' ('+code+')':'— wybierz kierowcę —'}</option>`;
             }).join('');
-            h+=`<section class="mt-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3" aria-label="Potwierdzanie przejazdu do Janusza">
+            h+=`<section class="fliku-janusz-confirm mb-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3" aria-label="Potwierdzanie przejazdu do Janusza">
               <h3 class="font-extrabold text-emerald-950 mb-1">👑 Potwierdź, kto jechał do ${jGen()}</h3>
-              <p class="text-xs text-emerald-900 mb-2">Wybierz datę, kierowcę i zatwierdź. Można też poprawić wcześniejszy wpis.</p>
+              <p class="text-xs text-emerald-900 mb-3">Wybierz datę i osobę, która naprawdę jechała. Przycisk zapisze potwierdzenie; starsze wpisy też można poprawiać.</p>
               <label class="block text-xs font-bold mb-2">Data przejazdu
                 <select id="flikuJanuszDate" onchange="flikuChangeJanuszDate(this.value)" class="mt-1 w-full border rounded-lg p-2 bg-white text-slate-900">${opts}</select>
               </label>
               <label class="block text-xs font-bold mb-3">Kto faktycznie jechał?
                 <select id="flikuJanuszDriver" onchange="flikuChangeJanuszDriver(this.value)" class="mt-1 w-full border rounded-lg p-2 bg-white text-slate-900">${options}</select>
               </label>
-              <button type="button" onclick="flikuConfirmJanuszRide()" class="w-full rounded-lg bg-emerald-700 text-white font-extrabold p-2.5">✅ Potwierdź przejazd</button>
+              <button id="flikuJanuszConfirmButton" type="button" onclick="flikuConfirmJanuszRide()" class="w-full rounded-lg bg-emerald-700 text-white font-extrabold p-3" style="min-height:48px">✅ Potwierdź i zapisz przejazd</button>
               ${chosen.assigned?`<p class="mt-2 text-xs font-semibold text-emerald-900">Zapisany kierowca: ${getDriverByCode(chosen.assigned).name}</p>`:'<p class="mt-2 text-xs text-amber-800">Brak dotychczasowego potwierdzenia.</p>'}
             </section>`;
         } else {
             h+='<p class="mt-3 text-xs text-amber-800">Nie ma jeszcze dni z zaplanowanym przejazdem Janusza.</p>';
         }
     }
+    if (suggested) {
+        h += `<div class="bg-amber-50 border-l-4 border-amber-500 rounded-xl p-3 mb-3 flex items-center gap-2 flex-wrap"><span class="text-xl">👉</span><span class="text-sm text-slate-800">Sugerowany kierowca do ${jGen()}:</span><span class="px-2.5 py-1 rounded text-white font-extrabold text-sm" style="background-color:${suggested.color}">${suggested.name}</span><span class="text-xs text-slate-600">(miesiąc: ${st[suggested.code].month}, rok: ${st[suggested.code].year})</span></div>`;
+    }
+    if (next) h += `<div class="text-xs text-slate-600 mb-2">📅 Najbliższy dzień ${jGen()} bez wpisu: <strong>${next.d} ${MONTH_META[next.monthIdx].pl} ${next.year}</strong></div>`;
+    if (missing > 0) h += `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-3">⚠️ Minione dni ${jGen()} bez wybranego kierowcy: <strong>${missing}</strong> (nie wliczone do statystyk)</div>`;
+    h += `<div class="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5"><div class="col-span-5 sm:col-span-4">Kierowca</div><div class="col-span-3 sm:col-span-2 text-center">Miesiąc</div><div class="col-span-4 sm:col-span-6">Rok ${curY}</div></div><div class="space-y-2">`;
+    cands.forEach(d => {
+        const c = st[d.code];
+        const star = suggested && suggested.code === d.code ? ' ⭐' : '';
+        h += `<div class="grid grid-cols-12 items-center gap-2 text-sm"><div class="col-span-5 sm:col-span-4"><span class="px-2 py-0.5 rounded text-white font-bold text-xs" style="background-color:${d.color}">${d.name}${star}</span></div><div class="col-span-3 sm:col-span-2 text-center font-extrabold text-slate-800">${c.month}</div><div class="col-span-4 sm:col-span-6 flex items-center gap-2"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div style="height:100%;width:${Math.round(c.year / maxY * 100)}%;background:${d.color}"></div></div><span class="font-extrabold text-slate-800 w-6 text-right">${c.year}</span></div></div>`;
+    });
+    h += '</div>';
     body.innerHTML = h;
 }
 
@@ -3474,10 +3491,13 @@ function flikuChangeJanuszDate(dateKey){
     renderJanuszPanel();
 }
 function flikuChangeJanuszDriver(code){ flikuJanuszSelectedDriver=code; }
-function flikuConfirmJanuszRide(){
+async function flikuConfirmJanuszRide(){
     if(!isAdmin){showToast('⚠️ Tylko administrator może potwierdzać przejazdy.');return;}
-    const dateKey=(document.getElementById('flikuJanuszDate')||{}).value||'';
-    const code=(document.getElementById('flikuJanuszDriver')||{}).value||'';
+    const dateInput=document.getElementById('flikuJanuszDate');
+    const driverInput=document.getElementById('flikuJanuszDriver');
+    const button=document.getElementById('flikuJanuszConfirmButton');
+    const dateKey=dateInput?.value||'';
+    const code=driverInput?.value||'';
     const valid=driversList.some(d=>d.code===code&&d.code!==JANUSZ_CODE);
     if(!valid){showToast('⚠️ Najpierw wybierz kierowcę.');return;}
     const found=scheduleData.find(m=>{
@@ -3486,14 +3506,19 @@ function flikuConfirmJanuszRide(){
     });
     const day=Number(dateKey.slice(-2));
     if(!found||!Number.isInteger(day)||day<1||day>found.days||(found.planned||{})[day]!==JANUSZ_CODE){
-        showToast('⚠️ Nie znaleziono przejazdu Janusza w tym dniu.');return;
+        showToast('⚠️ W wybranym dniu nie ma zaplanowanego kursu Janusza.');return;
     }
+    if(button){button.disabled=true;button.textContent='⏳ Zapisuję…';}
     found.toJ ||= {};
     found.toJ[day]=code;
     flikuJanuszSelectedDate=dateKey;
     flikuJanuszSelectedDriver=null;
-    saveState();
-    showToast('✅ Potwierdzono przejazd do Janusza: '+getDriverByCode(code).name);
+    saveLocalBackup();
+    renderAll();
+    // Czekamy na wynik synchronizacji, aby nie zgłaszać zapisu w chmurze przedwcześnie.
+    const synced=await pushLocalStateToFirebase(true);
+    if(synced)showToast('✅ Zapisano w Firebase: '+getDriverByCode(code).name+' • '+dateKey);
+    else showToast('⚠️ Zapis lokalny OK, ale brak potwierdzenia Firebase. Sprawdź połączenie.');
 }
 
 function refreshToJSection() {
@@ -3513,7 +3538,32 @@ function refreshToJSection() {
     cands.forEach(d => {
         b += `<button type="button" onclick="selectToJ('${d.code}')" class="py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer ${sel === d.code ? on : off}"><span class="w-3 h-3 rounded-full" style="background-color:${d.color}"></span>${d.name}</button>`;
     });
+    b+=`<button type="button" onclick="flikuConfirmJanuszFromDay()" class="col-span-2 w-full rounded-lg bg-emerald-700 text-white font-bold py-3 px-3 mt-1" style="min-height:48px">✅ Potwierdź przejazd do Janusza</button>`;
     document.getElementById('toJBtns').innerHTML = b;
+}
+async function flikuConfirmJanuszFromDay(){
+    if(!isAdmin){showToast('⚠️ Tylko administrator.');return;}
+    const {mIndex,day,toJ:code}=activeModalCell;
+    if(!driversList.some(d=>d.code===code&&code!==JANUSZ_CODE)){
+        showToast('⚠️ Wybierz kierowcę jadącego do Janusza.');return;
+    }
+    const month=scheduleData[mIndex];
+    if(!month || (month.planned||{})[day]!==JANUSZ_CODE){
+        showToast('⚠️ Najpierw zapisz plan Janusza dla tego dnia.');return;
+    }
+    // Potwierdzenie pasażera nie przelicza całego grafiku na 2027 rok.
+    // Inne edycje dnia można zapisać osobnym przyciskiem „Zapisz”.
+    month.toJ ||= {};
+    month.toJ[day]=code;
+    const dateKey=`${parseYearMonth(month)}-${String(day).padStart(2,'0')}`;
+    flikuJanuszSelectedDate=dateKey;
+    flikuJanuszSelectedDriver=null;
+    closeEditModal();
+    saveLocalBackup();
+    renderAll();
+    const synced=await pushLocalStateToFirebase(true);
+    if(synced)showToast('✅ Potwierdzono przejazd do Janusza: '+getDriverByCode(code).name);
+    else showToast('⚠️ Potwierdzono lokalnie; Firebase nie potwierdził zapisu.');
 }
 function selectToJ(code) {
     activeModalCell.toJ = code;
