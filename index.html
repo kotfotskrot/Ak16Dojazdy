@@ -2,6 +2,7 @@
 <html lang="pl"><head>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
+<!-- Fliku v11.5: wyszarzanie widoku tygodniowego. -->
 <!-- Fliku v11.4: poprawka Janusz admin i przewijania edycji. Poprzednia baza Fliku v10: poprawiony wybór miesiąca, diagnostyka przypomnień i obsługa zgody na powiadomienia. Bez samouczków. -->
 <title>Fliku Calendar - Rozpis Dojazdów</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -559,6 +560,19 @@ body[data-theme="graphite"] .shift-cell.past-day{opacity:.75}
 .fliku-janusz-confirm button {touch-action:manipulation;}
 .fliku-janusz-confirm button:disabled {opacity:.65;cursor:wait;}
 @media(max-width:440px){#editModal > div{padding:14px!important;}#januszSection{min-width:0!important;}#januszPanelBody{min-width:0!important;}}
+</style>
+<style id="fliku-v115-week-past">
+/* v11.5: minione dni w widoku jednego miesiąca korzystają z tego samego przełącznika co tabela. */
+#calendarContainer.fliku-skoda-one .fliku-week-day.is-past .fliku-week-date {
+ background:#cbd5e1!important;color:#475569!important;text-decoration:line-through;
+}
+#calendarContainer.fliku-skoda-one .fliku-week-day.is-past .fliku-week-shift {
+ background-color:#e2e8f0!important;
+ background-image:repeating-linear-gradient(-45deg,transparent,transparent 7px,rgba(100,116,139,.12) 7px,rgba(100,116,139,.12) 13px)!important;
+ filter:grayscale(85%);opacity:.68;
+}
+#calendarContainer.fliku-skoda-one .fliku-week-day.is-past .fliku-note-badge {filter:grayscale(85%);}
+#calendarContainer.fliku-skoda-one .fliku-week-day.is-past:focus-visible .fliku-week-shift {opacity:1;}
 </style>
 </head>
 <body class="p-3 sm:p-6 max-w-7xl mx-auto">
@@ -3300,6 +3314,7 @@ function renderCalendar() {
                 card.className='fliku-week-day'+(dow>=5?' weekend':'')+
                     (sourceHeader.classList.contains('hol')?' holiday':'')+
                     (sourceCell.classList.contains('yel')?' vacation':'')+
+                    (sourceHeader.classList.contains('past-header')?' is-past':'')+
                     (sourceHeader.classList.contains('today-header')?' is-today':'');
                 card.setAttribute('role','gridcell');
                 const header=document.createElement('div');
